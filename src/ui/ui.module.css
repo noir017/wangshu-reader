@@ -1,0 +1,184 @@
+/* 通用界面组件样式（仿原 app 的 Material 风格，颜色全部走 CSS 变量） */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgb(0 0 0 / 0.4);
+  display: flex;
+  animation: fade 0.15s ease-out;
+}
+.backdrop[data-pos='bottom'] { align-items: flex-end; justify-content: center; }
+.backdrop[data-pos='center'] { align-items: center; justify-content: center; }
+.backdrop[data-pos='left'] { justify-content: flex-start; }
+.backdrop[data-pos='right'] { justify-content: flex-end; }
+
+.sheet {
+  background: var(--mr-surface);
+  color: var(--mr-fg);
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgb(0 0 0 / 0.3);
+  overflow: hidden;
+}
+.backdrop[data-pos='bottom'] .sheet { width: min(100%, 720px); border-radius: 12px 12px 0 0; animation: up 0.18s ease-out; }
+.backdrop[data-pos='center'] .sheet { width: min(92vw, 480px); border-radius: var(--mr-radius); }
+.backdrop[data-pos='left'] .sheet,
+.backdrop[data-pos='right'] .sheet { width: min(86vw, 400px); height: 100%; max-height: none; }
+
+.sheetHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  font-size: 17px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--mr-border);
+}
+.sheetTitle { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sheetBody { overflow: auto; flex: 1; padding: 4px 0; overscroll-behavior: contain; }
+.sheetActions { display: flex; justify-content: flex-end; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--mr-border); }
+
+.btn {
+  border: none;
+  background: transparent;
+  color: var(--mr-accent);
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn:hover { background: color-mix(in srgb, var(--mr-accent) 10%, transparent); }
+.btn:disabled { opacity: 0.4; cursor: default; }
+.btnPrimary { background: var(--mr-accent); color: #fff; }
+.btnPrimary:hover { background: color-mix(in srgb, var(--mr-accent) 85%, #000); }
+
+.iconBtn {
+  border: none;
+  background: transparent;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex: none;
+}
+.iconBtn:hover { background: rgb(127 127 127 / 0.15); }
+.iconBtn:disabled { opacity: 0.35; cursor: default; }
+.iconBtn[data-active='true'] { color: var(--mr-accent); }
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  min-height: 48px;
+  cursor: default;
+}
+.row[data-clickable='true'] { cursor: pointer; }
+.row[data-clickable='true']:hover { background: rgb(127 127 127 / 0.08); }
+.row[data-disabled='true'] { opacity: 0.45; pointer-events: none; }
+.rowIcon { flex: none; color: var(--mr-muted); display: flex; }
+.rowText { flex: 1; min-width: 0; }
+.rowTitle { font-size: 15px; }
+.rowSub { font-size: 12.5px; color: var(--mr-muted); margin-top: 2px; }
+.rowRight { flex: none; color: var(--mr-muted); font-size: 13px; display: flex; align-items: center; gap: 6px; }
+
+.groupTitle { padding: 14px 16px 4px; font-size: 13px; font-weight: 600; color: var(--mr-accent); }
+
+.switch {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  flex: none;
+  appearance: none;
+  border-radius: 11px;
+  background: var(--mr-border);
+  cursor: pointer;
+  transition: background 0.15s;
+  margin: 0;
+}
+.switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
+  transition: transform 0.15s;
+}
+.switch:checked { background: var(--mr-accent); }
+.switch:checked::after { transform: translateX(18px); }
+
+.slider { width: 100%; accent-color: var(--mr-accent); }
+.sliderRow { padding: 6px 16px 10px; }
+.sliderHead { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 2px; }
+.sliderValue { color: var(--mr-muted); font-variant-numeric: tabular-nums; }
+.sliderLine { display: flex; align-items: center; gap: 8px; }
+
+.select,
+.input {
+  font: inherit;
+  color: var(--mr-fg);
+  background: var(--mr-surface);
+  border: 1px solid var(--mr-border);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+.input { width: 100%; }
+.input:focus,
+.select:focus { outline: 2px solid color-mix(in srgb, var(--mr-accent) 50%, transparent); }
+
+.segmented { display: inline-flex; border: 1px solid var(--mr-border); border-radius: 6px; overflow: hidden; }
+.segmented button { border: none; background: transparent; padding: 6px 12px; cursor: pointer; font-size: 13px; }
+.segmented button + button { border-left: 1px solid var(--mr-border); }
+.segmented button[data-active='true'] { background: var(--mr-accent); color: #fff; }
+
+.swatches { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 16px; }
+.swatch { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--mr-border); cursor: pointer; padding: 0; }
+.swatch[data-active='true'] { border-color: var(--mr-accent); box-shadow: 0 0 0 2px var(--mr-surface) inset; }
+
+.toastHost {
+  position: fixed;
+  left: 50%;
+  bottom: 72px;
+  transform: translateX(-50%);
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  background: rgb(40 40 40 / 0.92);
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 18px;
+  font-size: 14px;
+  max-width: 86vw;
+  animation: fade 0.15s ease-out;
+}
+
+.menu {
+  position: fixed;
+  z-index: 1500;
+  min-width: 180px;
+  background: var(--mr-surface);
+  border-radius: 6px;
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.25);
+  padding: 4px 0;
+  max-height: 70vh;
+  overflow: auto;
+}
+.menuItem { display: flex; align-items: center; gap: 10px; width: 100%; border: none; background: none; padding: 10px 16px; text-align: left; cursor: pointer; font-size: 14.5px; }
+.menuItem:hover { background: rgb(127 127 127 / 0.1); }
+.menuItem:disabled { opacity: 0.4; }
+
+@keyframes fade { from { opacity: 0; } }
+@keyframes up { from { transform: translateY(40px); opacity: 0.4; } }

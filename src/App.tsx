@@ -1,19 +1,17 @@
-// 应用外壳：按 hash 路由切页面。各页面组件由对应模块提供，这里只做装配。
+// 应用外壳：按 hash 路由切页面。#/read/<bookId> 是阅读页，其余路由都交给书库模块。
 import { useRoute } from './core/router';
 import { appSettings } from './core/app-settings';
-import { defineMessages } from './core/i18n';
-
-const t = defineMessages({
-  zh: { placeholder: '静读天下 Web：页面「{name}」尚未实现' },
-  en: { placeholder: 'Moon+ Reader Web: page "{name}" is not implemented yet' },
-});
+import { OverlayHost } from './ui';
+import { ReaderPage } from './reader/ui';
+import { LibraryApp } from './library';
 
 export function App() {
   const route = useRoute();
   const lang = appSettings.use((s) => s.language);
   return (
     <div className="app-root" key={lang}>
-      <p style={{ padding: 16 }}>{t('placeholder', { name: route.name || 'library' })}</p>
+      {route.name === 'read' && route.params[0] ? <ReaderPage key={route.params[0]} bookId={route.params[0]} /> : <LibraryApp route={route} />}
+      <OverlayHost />
     </div>
   );
 }
