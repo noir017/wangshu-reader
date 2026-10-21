@@ -11,6 +11,9 @@ import type {
   ReadingStatRecord,
 } from '@/core/library';
 
+/** 阅读统计记录。pages = 翻过的页数（STAT-003 第 3/5/6 张卡片要用，core/library.ts 的类型尚无此字段，待总控补） */
+export type StatRecord = ReadingStatRecord & { pages?: number; dayPages?: Record<number, number> };
+
 export const DB_NAME = 'moonreader';
 export const DB_VERSION = 1;
 
@@ -20,7 +23,7 @@ interface MoonDB extends DBSchema {
   covers: { key: [string, CoverKind]; value: { bookId: string; kind: CoverKind; blob: Blob } };
   positions: { key: string; value: PositionRecord };
   annotations: { key: string; value: AnnotationRecord; indexes: { bookId: string; updatedAt: number } };
-  stats: { key: string; value: ReadingStatRecord };
+  stats: { key: string; value: StatRecord };
   fonts: { key: string; value: FontRecord };
   /** 杂项键值：最近阅读历史、搜索历史、OPDS 书库、置顶项等。键名用 `模块.用途` */
   kv: { key: string; value: { key: string; value: unknown } };
@@ -83,6 +86,11 @@ export function deviceId(): string {
   return id;
 }
 
+/** 恢复备份后重置设备 id，避免与云端同步记录冲突（BAK-002） */
+export function resetDeviceId(): void {
+  globalThis.localStorage?.removeItem('mr.deviceId');
+}
+
 export function newId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
 }
@@ -124,15 +132,20 @@ export async function updateBook(id: string, patch: Partial<BookRecord>): Promis
   return next;
 }
 
-/** 删除书：书记录、文件、封面、进度、统计；标注默认一并删除（keepAnnotations 时保留，便于重新导入后恢复） */
-export async function deleteBook(id: string, opts: { keepAnnotations?: boolean } = {}): Promise<void> {
+/**
+ * 删除书：书记录、文件、封面；标注默认一并删除（keepAnnotations 时保留，便于重新导入后恢复）。
+ * keepProgress 时保留进度与统计（原 app「从书架移除」不动 notes/statistics/进度）。
+ */
+export async function deleteBook(id: string, opts: { keepAnnotations?: boolean; keepProgress?: boolean } = {}): Promise<void> {
   const db = await getDb();
   const tx = db.transaction(['books', 'files', 'covers', 'positions', 'stats', 'annotations'], 'readwrite');
   await tx.objectStore('books').delete(id);
   await tx.objectStore('files').delete(id);
   for (const kind of ['thumb', 'cover', 'edit', 'net'] as CoverKind[]) await tx.objectStore('covers').delete([id, kind]);
-  await tx.objectStore('positions').delete(id);
-  await tx.objectStore('stats').delete(id);
+  if (!opts.keepProgress) {
+    await tx.objectStore('positions').delete(id);
+    await tx.objectStore('stats').delete(id);
+  }
   if (!opts.keepAnnotations) {
     const keys = await tx.objectStore('annotations').index('bookId').getAllKeys(id);
     for (const k of keys) await tx.objectStore('annotations').delete(k);
@@ -141,9 +154,19 @@ export async function deleteBook(id: string, opts: { keepAnnotations?: boolean }
   changed('books', id, id);
 }
 
+/** 只列书架上的书（onShelf !== false） */
+export async function listShelfBooks(): Promise<BookRecord[]> {
+  return (await listBooks()).filter((b) => b.onShelf !== false);
+}
+
 // ───────────── files / covers ─────────────
 export async function getBookFile(bookId: string): Promise<Blob | undefined> {
   return (await (await getDb()).get('files', bookId))?.blob;
+}
+
+/** 只判断有没有文件，不把整本书读进内存 */
+export async function hasBookFile(bookId: string): Promise<boolean> {
+  return (await (await getDb()).getKey('files', bookId)) !== undefined;
 }
 
 export async function putBookFile(bookId: string, blob: Blob): Promise<void> {
@@ -182,6 +205,40 @@ export async function savePosition(rec: Omit<PositionRecord, 'updatedAt' | 'devi
   changed('positions', rec.bookId, rec.bookId);
 }
 
+export async function listPositions(): Promise<PositionRecord[]> {
+  return (await getDb()).getAll('positions');
+}
+
+export async function deletePosition(bookId: string): Promise<void> {
+  const db = await getDb();
+  const tx = db.transaction(['positions', 'books'], 'readwrite');
+  await tx.objectStore('positions').delete(bookId);
+  const b = await tx.objectStore('books').get(bookId);
+  if (b && b.progress !== undefined) {
+    const { progress: _p, ...rest } = b;
+    await tx.objectStore('books').put(rest as BookRecord);
+  }
+  await tx.done;
+  changed('positions', bookId, bookId);
+}
+
+/** 清空全部阅读进度（同时清掉书记录上缓存的 progress） */
+export async function clearPositions(): Promise<void> {
+  const db = await getDb();
+  const tx = db.transaction(['positions', 'books'], 'readwrite');
+  await tx.objectStore('positions').clear();
+  let cur = await tx.objectStore('books').openCursor();
+  while (cur) {
+    if (cur.value.progress !== undefined) {
+      const { progress: _p, ...rest } = cur.value;
+      await cur.update(rest as BookRecord);
+    }
+    cur = await cur.continue();
+  }
+  await tx.done;
+  changed('positions');
+}
+
 // ───────────── annotations ─────────────
 export async function listAnnotations(bookId: string, opts: { includeDeleted?: boolean } = {}): Promise<AnnotationRecord[]> {
   const all = await (await getDb()).getAllFromIndex('annotations', 'bookId', bookId);
@@ -214,25 +271,29 @@ export function dayNumber(at = Date.now()): number {
   return Math.floor((at - d.getTimezoneOffset() * 60_000) / 86_400_000);
 }
 
-export async function getStats(bookId: string): Promise<ReadingStatRecord | undefined> {
+export async function getStats(bookId: string): Promise<StatRecord | undefined> {
   return (await getDb()).get('stats', bookId);
 }
 
-export async function listStats(): Promise<ReadingStatRecord[]> {
+export async function listStats(): Promise<StatRecord[]> {
   return (await getDb()).getAll('stats');
 }
 
-/** 累加阅读时长与字数（STAT-001），按本地日期归档 */
-export async function addReadingTime(bookId: string, ms: number, words: number, at = Date.now()): Promise<void> {
-  if (ms <= 0 && words <= 0) return;
+/** 累加阅读时长、字数、翻页数（STAT-001），按本地日期归档。pages 可省（旧调用方不传则不统计页数） */
+export async function addReadingTime(bookId: string, ms: number, words: number, at = Date.now(), pages = 0): Promise<void> {
+  if (ms <= 0 && words <= 0 && pages <= 0) return;
   const db = await getDb();
   const tx = db.transaction('stats', 'readwrite');
-  const cur = (await tx.store.get(bookId)) ?? { bookId, usedMs: 0, words: 0, days: {} };
+  const cur: StatRecord = (await tx.store.get(bookId)) ?? { bookId, usedMs: 0, words: 0, days: {} };
   const day = dayNumber(at);
   const d = cur.days[day] ?? { ms: 0, words: 0 };
   cur.days[day] = { ms: d.ms + ms, words: d.words + words };
   cur.usedMs += ms;
   cur.words += words;
+  if (pages > 0) {
+    cur.pages = (cur.pages ?? 0) + pages;
+    cur.dayPages = { ...(cur.dayPages ?? {}), [day]: (cur.dayPages?.[day] ?? 0) + pages };
+  }
   await tx.store.put(cur);
   await tx.done;
   changed('stats', bookId, bookId);
@@ -275,9 +336,31 @@ export async function deleteKV(key: string): Promise<void> {
   changed('kv', key);
 }
 
+// ───────────── 备份/恢复用的整表读写 ─────────────
+export async function getAllRaw<S extends StoreName>(store: S): Promise<MoonDB[S]['value'][]> {
+  return (await getDb()).getAll(store);
+}
+
+export async function clearStore(store: StoreName): Promise<void> {
+  await (await getDb()).clear(store);
+  changed(store);
+}
+
+/** 批量写入整表记录（恢复备份用）。books 记录需要带上 lowerFileName 索引字段 */
+export async function putManyRaw(store: StoreName, values: unknown[]): Promise<void> {
+  const db = await getDb();
+  const tx = db.transaction(store, 'readwrite');
+  for (const v of values) {
+    const rec = store === 'books' ? { ...(v as BookRecord), lowerFileName: (v as BookRecord).fileName.toLowerCase() } : v;
+    await (tx.store as unknown as { put(v: unknown): Promise<unknown> }).put(rec);
+  }
+  await tx.done;
+  changed(store);
+}
+
 // ───────────── 最近阅读历史（原 history.txt，LIB-042） ─────────────
 const HISTORY_KEY = 'library.history';
-const HISTORY_MAX = 200;
+const HISTORY_MAX = 1000;
 
 export async function getHistory(): Promise<{ bookId: string; at: number }[]> {
   return (await getKV<{ bookId: string; at: number }[]>(HISTORY_KEY)) ?? [];
@@ -291,4 +374,13 @@ export async function touchHistory(bookId: string, at = Date.now()): Promise<voi
 
 export async function removeFromHistory(bookId: string): Promise<void> {
   await setKV(HISTORY_KEY, (await getHistory()).filter((h) => h.bookId !== bookId));
+}
+
+export async function removeManyFromHistory(bookIds: string[]): Promise<void> {
+  const drop = new Set(bookIds);
+  await setKV(HISTORY_KEY, (await getHistory()).filter((h) => !drop.has(h.bookId)));
+}
+
+export async function clearHistory(): Promise<void> {
+  await setKV(HISTORY_KEY, []);
 }
