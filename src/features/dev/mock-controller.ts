@@ -341,6 +341,10 @@ export class MockController implements ReaderController {
     return e;
   }
 
+  getSectionDocument(section: number): Document | null {
+    return section === this.section && this.doc ? this.doc : null;
+  }
+
   async getSectionText(section: number): Promise<string> {
     return (await this.parsed(section)).text;
   }

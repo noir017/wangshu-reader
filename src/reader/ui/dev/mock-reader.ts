@@ -190,6 +190,10 @@ export class MockReader implements ReaderController {
     this.emitRelocate();
   }
 
+  getSectionDocument(): Document | null {
+    return null;
+  }
+
   async getSectionText(section: number): Promise<string> {
     return this.texts[section] ?? '';
   }
