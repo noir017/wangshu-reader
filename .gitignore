@@ -1,0 +1,12 @@
+node_modules/
+dist/
+dist-single/
+dist-server/
+out/
+coverage/
+test-results/
+playwright-report/
+.vite/
+*.tsbuildinfo
+/samples/
+/server/data/

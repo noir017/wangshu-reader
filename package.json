@@ -1,0 +1,51 @@
+{
+  "name": "moonreader-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "静读天下（Moon+ Reader）web 版复刻：浏览器端阅读器 + HTTP 服务端",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "dev:server": "tsx watch server/src/index.ts",
+    "build": "vite build",
+    "build:single": "vite build --mode single",
+    "build:server": "esbuild server/src/index.ts --bundle --platform=node --format=esm --packages=external --outfile=dist-server/index.mjs",
+    "build:all": "npm run build && npm run build:single && npm run build:server",
+    "start": "node dist-server/index.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p server/tsconfig.json --noEmit",
+    "test": "vitest run",
+    "e2e": "playwright test",
+    "deps": "flock /tmp/moonreader-npm.lock npm install --no-audit --no-fund"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.5",
+    "dompurify": "^3.4.17",
+    "fflate": "^0.8.3",
+    "hono": "^4.13.13",
+    "idb": "^8.0.4",
+    "jszip": "^3.10.2",
+    "lucide-react": "^1.61.0",
+    "marked": "^18.1.1",
+    "opencc-js": "^1.4.2",
+    "pdfjs-dist": "^6.4.299",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "zustand": "^5.0.15"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "@types/dompurify": "^3.0.5",
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "esbuild": "^0.28.2",
+    "fake-indexeddb": "^6.2.6",
+    "happy-dom": "^21.0.4",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5",
+    "vite-plugin-singlefile": "^2.3.4",
+    "vitest": "^5.0.5"
+  }
+}
