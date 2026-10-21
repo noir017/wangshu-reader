@@ -7,7 +7,7 @@ import { HLALL_PREFIX, hlAllDecorations, loadHlAll, useHlAll } from './highlight
 import { annotationIdOfDecoration, relocate, toDecorations } from './model';
 import { startAnnotationSync, useAnnotations } from './store';
 import { openAnnotationPopup } from './AnnotationPopup';
-import { clearSectionDocs, rememberSectionDoc } from '../common/section-docs';
+import { clearSectionDocs, rememberSectionDoc, setSectionDocSource } from '../common/section-docs';
 import { peekLocation } from '../common/safe';
 
 export function AnnotationLayer() {
@@ -23,6 +23,7 @@ export function AnnotationLayer() {
 
   useEffect(() => {
     overrides.current.clear();
+    setSectionDocSource(controller);
     const stop = startAnnotationSync(bookId);
     void loadHlAll(bookId);
     return () => {
@@ -34,6 +35,7 @@ export function AnnotationLayer() {
       }
       // 章节文档按会话缓存：换书/卸载时清掉，免得点选取词反查到上一本书的文档
       clearSectionDocs();
+      setSectionDocSource(null);
     };
   }, [bookId, controller]);
 

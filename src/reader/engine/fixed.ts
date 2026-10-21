@@ -952,6 +952,10 @@ export class FixedEngine implements ReaderController, FlipHost {
     return (await this.textOf(section))?.text ?? '';
   }
 
+  getSectionDocument(): Document | null {
+    return null;
+  }
+
   async getSectionTextWithBreaks(section: number): Promise<{ text: string; breaks: number[] }> {
     const text = (await this.textOf(section))?.text ?? '';
     const breaks: number[] = [];

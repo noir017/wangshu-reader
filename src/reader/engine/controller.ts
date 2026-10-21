@@ -991,6 +991,11 @@ export class Engine implements ReaderController {
     return out;
   }
 
+  getSectionDocument(section: number): Document | null {
+    const f = this.frames.get(section);
+    return f?.loaded ? f.doc : null;
+  }
+
   /** textOfHtml 的别名，给外部离线取文本 */
   static textOfHtml = textOfHtml;
 

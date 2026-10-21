@@ -102,6 +102,11 @@ export interface ReaderController {
   getSectionText(section: number): Promise<string>;
   /** 章节纯文本 + 段落边界 */
   getSectionTextWithBreaks(section: number): Promise<{ text: string; breaks: number[] }>;
+  /**
+   * 已渲染章节的文档（同源 iframe，与 sectionReady 给的是同一个）。只读用途：脚注锚点、取图、点选反查偏移。
+   * 章节没在渲染（或固定版式）返回 null，不会为此触发加载；不要缓存，章节卸载后文档即失效
+   */
+  getSectionDocument(section: number): Document | null;
 
   /** 按图层整体替换装饰（layer 如 'annotations' / 'search' / 'tts'），引擎负责在各章节渲染时应用 */
   setDecorations(layer: string, decorations: Decoration[]): void;
