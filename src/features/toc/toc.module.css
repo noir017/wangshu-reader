@@ -1,0 +1,51 @@
+.tabs { display: flex; flex: 1; min-width: 0; }
+.tab {
+  border: none;
+  background: transparent;
+  padding: 12px 14px;
+  font-size: 15px;
+  cursor: pointer;
+  color: var(--mr-muted);
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+}
+.tab[data-active='true'] { color: var(--mr-accent); border-bottom-color: var(--mr-accent); font-weight: 600; }
+.deleteBtn { border: none; background: #d9534f; color: #fff; border-radius: 6px; padding: 6px 10px; font-size: 13px; cursor: pointer; margin-right: 4px; white-space: nowrap; }
+
+.curLine { display: flex; align-items: center; gap: 2px; padding: 4px 6px 4px 14px; border-bottom: 1px solid var(--mr-border); flex: none; }
+.curText { flex: 1; min-width: 0; font-size: 13px; color: var(--mr-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.searchBox { padding: 6px 12px; flex: none; }
+.searchInput { width: 100%; font: inherit; color: var(--mr-fg); background: var(--mr-surface); border: 1px solid var(--mr-border); border-radius: 6px; padding: 6px 10px; }
+
+.row { display: flex; align-items: center; height: 100%; gap: 2px; padding-right: 12px; cursor: pointer; border-bottom: 1px solid color-mix(in srgb, var(--mr-border) 50%, transparent); }
+.row:hover { background: rgb(127 127 127 / 0.08); }
+.row[data-current='true'] { color: var(--mr-accent); }
+.arrow { border: none; background: transparent; padding: 0; width: 26px; height: 32px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; flex: none; color: var(--mr-muted); }
+.arrowSpace { width: 26px; flex: none; }
+.title { flex: 1; min-width: 0; font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.title[data-parent='true'] { font-weight: 600; }
+.mark { flex: none; font-weight: 700; margin-left: 6px; }
+
+/* 书签页 */
+.annotBar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 4px 8px; border-bottom: 1px solid var(--mr-border); flex: none; }
+.annotList { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.item { display: flex; gap: 10px; padding: 10px 12px 10px 14px; border-bottom: 1px solid color-mix(in srgb, var(--mr-border) 60%, transparent); cursor: pointer; align-items: flex-start; }
+.item:hover { background: rgb(127 127 127 / 0.07); }
+.item[data-selected='true'] { background: color-mix(in srgb, var(--mr-accent) 14%, transparent); }
+.itemIcon { flex: none; margin-top: 2px; color: var(--mr-muted); }
+.itemMain { flex: 1; min-width: 0; }
+.itemText { font-size: 14.5px; line-height: 1.55; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.itemNote { margin-top: 4px; font-size: 13.5px; color: var(--mr-muted); white-space: pre-wrap; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.itemMeta { margin-top: 4px; font-size: 12px; color: var(--mr-muted); display: flex; gap: 8px; }
+.itemMeta .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mark2 { background: #ffe066; color: #000; border-radius: 2px; font-weight: 700; }
+.check { flex: none; margin-top: 3px; }
+.colorDot { width: 22px; height: 22px; border-radius: 50%; border: 2px solid transparent; padding: 0; cursor: pointer; box-shadow: 0 0 0 1px var(--mr-border); }
+.colorDot[data-active='true'] { border-color: var(--mr-accent); }
+.footerBtn { border: 1px solid var(--mr-accent); background: transparent; color: var(--mr-accent); border-radius: 18px; padding: 7px 18px; font-size: 14.5px; cursor: pointer; }
+
+/* 图片页 */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; padding: 10px; overflow: auto; flex: 1; min-height: 0; align-content: start; }
+.thumb { aspect-ratio: 1; border: 1px solid var(--mr-border); border-radius: 6px; overflow: hidden; background: rgb(127 127 127 / 0.1); cursor: pointer; padding: 0; position: relative; }
+.thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.thumbLabel { position: absolute; left: 0; right: 0; bottom: 0; background: rgb(0 0 0 / 0.55); color: #fff; font-size: 11px; padding: 1px 4px; }

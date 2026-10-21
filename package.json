@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@hono/node-server": "^2.1.5",
+    "busboy": "^1.6.0",
     "dompurify": "^3.4.17",
     "fflate": "^0.8.3",
     "hono": "^4.13.13",
@@ -27,17 +28,24 @@
     "lucide-react": "^1.61.0",
     "marked": "^18.1.1",
     "opencc-js": "^1.4.2",
+    "parse5": "^8.0.1",
     "pdfjs-dist": "^6.4.299",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
+    "ws": "^8.22.0",
     "zustand": "^5.0.15"
+  },
+  "optionalDependencies": {
+    "@napi-rs/canvas": "^1.0.13"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.1",
+    "@types/busboy": "^1.5.5",
     "@types/dompurify": "^3.0.5",
     "@types/node": "^26.6.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "@types/ws": "^8.18.2",
     "@vitejs/plugin-react": "^6.1.2",
     "esbuild": "^0.28.2",
     "fake-indexeddb": "^6.2.6",
@@ -46,6 +54,7 @@
     "typescript": "^7.0.2",
     "vite": "^8.3.5",
     "vite-plugin-singlefile": "^2.3.4",
-    "vitest": "^5.0.5"
+    "vitest": "^5.0.5",
+    "webdav": "^5.11.0"
   }
 }

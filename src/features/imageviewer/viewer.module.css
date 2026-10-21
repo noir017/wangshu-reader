@@ -1,0 +1,10 @@
+.root { position: fixed; inset: 0; z-index: 1100; display: flex; flex-direction: column; user-select: none; -webkit-user-select: none; }
+.stage { position: absolute; inset: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; touch-action: none; cursor: grab; }
+.img { max-width: 100%; max-height: 100%; object-fit: contain; will-change: transform; -webkit-user-drag: none; }
+.broken { opacity: 0.7; }
+.top { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; gap: 2px; padding: 6px 6px 18px; z-index: 2; }
+.titleText { flex: 1; min-width: 0; font-size: 16px; padding-left: 6px; }
+.strip { position: absolute; left: 0; right: 0; bottom: 0; display: flex; gap: 6px; padding: 18px 8px 10px; overflow-x: auto; background: linear-gradient(#0000, #000a); z-index: 2; }
+.stripItem { flex: none; width: 56px; height: 56px; padding: 0; border: 2px solid transparent; border-radius: 4px; overflow: hidden; background: #333; cursor: pointer; opacity: 0.75; }
+.stripItem[data-active='true'] { border-color: var(--mr-accent); opacity: 1; }
+.stripItem img { width: 100%; height: 100%; object-fit: cover; display: block; }

@@ -1,0 +1,129 @@
+/* features 公用样式：选择条、浮层气泡、面板。颜色全部走 CSS 变量（--mr-*），随应用深浅色。 */
+
+/* 阅读区上的浮层，层级高于正文与状态栏、低于 ui 的 Sheet/菜单（1000+） */
+.floating {
+  position: fixed;
+  z-index: 900;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+.bar {
+  display: flex;
+  align-items: stretch;
+  background: var(--mr-bar-bg);
+  color: var(--mr-bar-fg);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.35);
+  overflow: hidden;
+}
+.barBtn {
+  border: none;
+  background: transparent;
+  color: inherit;
+  padding: 10px 13px;
+  font-size: 14.5px;
+  line-height: 1.2;
+  cursor: pointer;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.barBtn:hover,
+.barBtn:active { background: rgb(255 255 255 / 0.14); }
+.barBtn[data-active='true'] { background: rgb(255 255 255 / 0.22); }
+.barBtn:disabled { opacity: 0.4; }
+.barSep { width: 1px; background: rgb(255 255 255 / 0.18); margin: 8px 0; }
+
+.template {
+  display: grid;
+  grid-template-columns: repeat(5, 34px);
+  gap: 6px;
+  padding: 6px;
+  background: var(--mr-bar-bg);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.35);
+  margin-bottom: 6px;
+}
+.tplCell {
+  width: 34px;
+  height: 30px;
+  border-radius: 6px;
+  border: 1px solid rgb(255 255 255 / 0.25);
+  background: rgb(255 255 255 / 0.08);
+  color: var(--mr-bar-fg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 600;
+}
+.tplCell[data-active='true'] { border-color: #fff; }
+.tplColor { border-radius: 50%; width: 30px; height: 30px; margin: 0 auto; }
+
+/* 气泡（脚注、笔记、词典卡片）：带箭头、可滚动 */
+.bubble {
+  position: fixed;
+  z-index: 900;
+  background: var(--mr-surface);
+  color: var(--mr-fg);
+  border-radius: 10px;
+  box-shadow: 0 6px 28px rgb(0 0 0 / 0.35);
+  border: 1px solid var(--mr-border);
+  max-height: 46vh;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 10px 14px;
+  font-size: 15px;
+  line-height: 1.6;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.bubble img { max-width: 100%; height: auto; }
+.bubble a { color: var(--mr-accent); }
+.bubbleHead { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-weight: 600; }
+.bubbleHead .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.muted { color: var(--mr-muted); font-size: 13px; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 12px; }
+.chip {
+  border: 1px solid var(--mr-border);
+  background: transparent;
+  color: var(--mr-fg);
+  border-radius: 16px;
+  padding: 4px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.chip[data-active='true'] { background: var(--mr-accent); border-color: var(--mr-accent); color: #fff; }
+
+.dot { display: inline-block; width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--mr-border); vertical-align: middle; flex: none; }
+.swatchBtn { cursor: pointer; padding: 0; background: transparent; }
+.swatchBtn[data-active='true'] { outline: 2px solid var(--mr-accent); outline-offset: 1px; }
+
+.textarea {
+  width: 100%;
+  min-height: 140px;
+  resize: vertical;
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--mr-fg);
+  background: var(--mr-surface);
+  border: 1px solid var(--mr-border);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+.textarea:focus { outline: 2px solid color-mix(in srgb, var(--mr-accent) 50%, transparent); }
+
+.pad { padding: 10px 16px; }
+.grow { flex: 1; min-width: 0; }
+.row2 { display: flex; align-items: center; gap: 10px; }
+.warn { color: #d9534f; font-size: 13px; padding: 4px 16px; }
+.empty { padding: 36px 16px; text-align: center; color: var(--mr-muted); white-space: pre-line; line-height: 1.7; }
+
+.kbd { font-family: ui-monospace, monospace; font-size: 12px; padding: 1px 5px; border: 1px solid var(--mr-border); border-radius: 4px; }
