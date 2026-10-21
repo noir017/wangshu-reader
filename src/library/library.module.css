@@ -298,6 +298,9 @@
 .statCard b { display: block; font-size: 26px; font-weight: 700; color: var(--mr-accent); font-variant-numeric: tabular-nums; line-height: 1.2; }
 .statCard span { display: block; margin-top: 4px; font-size: 12px; color: var(--mr-muted); line-height: 1.25; }
 
-.wood { --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='320'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.008 0.55' numOctaves='3' seed='4'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.30 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+.wood { --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='320'%3E%3Cfilter id='n' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.008 0.55' numOctaves='3' seed='4' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.30 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
 
 .groupTitleBar { padding: 6px 16px; font-size: 12.5px; font-weight: 600; color: var(--mr-accent); background: color-mix(in srgb, var(--mr-surface) 90%, var(--mr-fg)); position: sticky; top: 0; z-index: 1; }
+
+/* 设置页：宽屏下限宽居中，滑块不会拉得过长 */
+.settingsBody { max-width: 760px; margin: 0 auto; }

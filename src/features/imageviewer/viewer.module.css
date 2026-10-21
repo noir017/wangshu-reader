@@ -1,4 +1,5 @@
-.root { position: fixed; inset: 0; z-index: 1100; display: flex; flex-direction: column; user-select: none; -webkit-user-select: none; }
+/* 层级：高于目录抽屉(950)，低于 ui 的弹层/菜单(1000)——看图器里的选项对话框要能盖在它上面 */
+.root { position: fixed; inset: 0; z-index: 960; display: flex; flex-direction: column; user-select: none; -webkit-user-select: none; }
 .stage { position: absolute; inset: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; touch-action: none; cursor: grab; }
 .img { max-width: 100%; max-height: 100%; object-fit: contain; will-change: transform; -webkit-user-drag: none; }
 .broken { opacity: 0.7; }

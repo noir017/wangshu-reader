@@ -1,3 +1,5 @@
+import { formatPdfCopyText } from './pdf-text';
+
 // 复制 / 分享 / 下载：能用的浏览器 API 不同，逐级降级。
 
 export async function copyText(text: string): Promise<boolean> {
@@ -70,4 +72,9 @@ export async function shareFile(file: File, title?: string): Promise<boolean> {
 /** 选中文字的统一整理：U+3000 → 空格并去首尾空白（ANNO-003） */
 export function normalizeSelectedText(s: string): string {
   return s.replace(/　/g, ' ').trim();
+}
+
+/** 选中文字交给各个动作（拷贝/分享/词典…）前的整理：固定版式（PDF）先去排版换行，再统一空白（原 getSelectedWord） */
+export function selectedWordOf(kind: 'reflowable' | 'fixed', raw: string): string {
+  return normalizeSelectedText(kind === 'fixed' ? formatPdfCopyText(raw) : raw);
 }

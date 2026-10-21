@@ -127,3 +127,14 @@
 .empty { padding: 36px 16px; text-align: center; color: var(--mr-muted); white-space: pre-line; line-height: 1.7; }
 
 .kbd { font-family: ui-monospace, monospace; font-size: 12px; padding: 1px 5px; border: 1px solid var(--mr-border); border-radius: 4px; }
+
+.filterInput {
+  width: 100%;
+  min-width: 0;
+  font: inherit;
+  color: var(--mr-fg);
+  background: var(--mr-surface);
+  border: 1px solid var(--mr-border);
+  border-radius: 6px;
+  padding: 6px 8px;
+}

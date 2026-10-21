@@ -181,6 +181,8 @@ export function ShelfPage() {
   const title = inFav ? `★ ${groupLabel(1, st.subCollection)}` : CATEGORY_NAMES()[st.category];
   const subtitle = st.subCollection && !inFav ? groupLabel(st.category, st.subCollection) : st.subAuthor && !st.subCollection ? st.subAuthor : undefined;
   const totalOnShelf = lib.books.filter((b) => b.onShelf !== false).length;
+  // 木纹只铺在有书的格子视图下；分组列表、空书架、无匹配时用普通背景（木纹上的浅色字配白色行看不清）
+  const showWood = wood && !result.groups && shown.length > 0;
 
   return (
     <>
@@ -204,8 +206,8 @@ export function ShelfPage() {
         }
       />
       <div
-        className={`${s.content} ${wood ? `${s.wood} ${woodImg && woodRes === 5 ? s.wood5 : s[`wood${woodRes === 5 ? 0 : woodRes}` as 'wood0']}` : ''}`}
-        style={wood && woodRes === 5 && woodImg ? { backgroundImage: `url(${woodImg})` } : undefined}
+        className={`${s.content} ${showWood ? `${s.wood} ${woodImg && woodRes === 5 ? s.wood5 : s[`wood${woodRes === 5 ? 0 : woodRes}` as 'wood0']}` : ''}`}
+        style={showWood && woodRes === 5 && woodImg ? { backgroundImage: `url(${woodImg})` } : undefined}
       >
         {!lib.loaded ? null : totalOnShelf === 0 ? (
           <Empty icon={<LibraryIcon size={48} />} text={<><b>{t('emptyShelf')}</b><div>{t('emptyShelfHint')}</div></>}>

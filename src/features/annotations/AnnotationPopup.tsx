@@ -6,6 +6,7 @@ import type { AnnotationRecord } from '@/core/library';
 import type { ReaderSession } from '@/core/reader-session';
 import { IconButton, toast } from '@/ui';
 import { copyText, shareText } from '../common/clipboard';
+import { useFocusAndEscape } from '../common/hooks';
 import { placeNear, type Placement } from '../common/position';
 import { tc } from '../common/messages';
 import css from '../common/features.module.css';
@@ -52,6 +53,8 @@ function Popup({ session, a, rect }: { session: ReaderSession; a: AnnotationReco
     setPlace(placeNear(rect, { width: el.offsetWidth, height: el.offsetHeight }, { width: window.innerWidth, height: window.innerHeight }, { prefer: 'above' }));
   }, [rect, a.note]);
 
+  useFocusAndEscape(ref, closeAnnotationPopup, !!place);
+
   const apply = async (patch: Partial<AnnotationRecord>) => {
     await patchAnnotation(a.id, patch);
   };
@@ -70,7 +73,8 @@ function Popup({ session, a, rect }: { session: ReaderSession; a: AnnotationReco
         ref={ref}
         className={css.bubble}
         data-testid="annotation-popup"
-        style={{ width: 'min(92vw, 340px)', left: place?.left ?? 0, top: place?.top ?? 0, visibility: place ? 'visible' : 'hidden', zIndex: 901, padding: 8 }}
+        tabIndex={-1}
+        style={{ outline: 'none', width: 'min(92vw, 340px)', left: place?.left ?? 0, top: place?.top ?? 0, visibility: place ? 'visible' : 'hidden', zIndex: 901, padding: 8 }}
         onPointerDown={(e) => e.stopPropagation()}
       >
         {a.note && (

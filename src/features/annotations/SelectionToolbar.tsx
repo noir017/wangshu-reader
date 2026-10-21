@@ -8,11 +8,11 @@ import { useReaderSession, type ReaderSession } from '@/core/reader-session';
 import type { HighlightStyle } from '@/core/library';
 import type { ReaderSelection } from '@/core/reader';
 import { popupMenu, toast } from '@/ui';
-import { copyText, normalizeSelectedText, shareText } from '../common/clipboard';
+import { copyText, normalizeSelectedText, selectedWordOf, shareText } from '../common/clipboard';
 import { useBus, useControllerEvent } from '../common/hooks';
 import { placeNear, type Placement } from '../common/position';
 import { getSectionText } from '../common/section-text';
-import { recentSectionDocs } from '../common/section-docs';
+import { hitTestPoint } from '../common/hit-test';
 import { tc } from '../common/messages';
 import css from '../common/features.module.css';
 import { lookupWord, openWebSearch, openWikipedia, translateSelection } from '../dict/lookup';
@@ -30,8 +30,9 @@ import { annoSettings, HL_STYLES, setStyleColor, styleColorOf } from './settings
 import { currentAnnotations } from './store';
 import { selectBarSettings, splitBar, type SelectItemId } from './toolbar-config';
 import { firstSentenceFrom, wordRangeAt } from './select-word';
-import { offsetOfPoint } from '@/core/text';
 import { StyleSample } from './StyleSample';
+import { useHandleDrag } from './handle-state';
+import { peekLocation, peekSelection } from '../common/safe';
 
 const ICONS: Record<SelectItemId, ReactNode> = {
   copy: <Copy size={16} />,
@@ -142,7 +143,7 @@ async function doHighlight(session: ReaderSession, sel: ReaderSelection, direct:
 export function SelectionToolbar() {
   const session = useReaderSession();
   const { controller } = session;
-  const [sel, setSel] = useState<ReaderSelection | null>(() => controller.getSelection());
+  const [sel, setSel] = useState<ReaderSelection | null>(() => peekSelection(controller));
   const [place, setPlace] = useState<Placement | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const barItems = selectBarSettings.use((s) => s.items);
@@ -151,8 +152,11 @@ export function SelectionToolbar() {
   const openDictDirect = dictSettings.use((s) => s.openDictDirect);
   const mode = annoSettings.use((s) => s.highlightMode);
   const presets = annoSettings.use((s) => s.presetColors);
-  const styleColors = annoSettings.use((s) => [s.highlightColor, s.underlineColor, s.strikethroughColor, s.squigglyColor] as const);
+  // 选择器必须返回稳定引用：每次新建数组会让 zustand 判定状态一直在变，进入无限重渲染
+  const anno = annoSettings.use((s) => s);
+  const styleColors = [anno.highlightColor, anno.underlineColor, anno.strikethroughColor, anno.squigglyColor] as const;
   const { main, more } = useMemo(() => splitBar(barItems), [barItems]);
+  const dragging = useHandleDrag((s) => s.dragging);
 
   useControllerEvent('selection', (s) => setSel(s && s.text.trim() ? s : null));
 
@@ -187,7 +191,7 @@ export function SelectionToolbar() {
   const run = useCallback(
     (id: SelectItemId) => {
       if (!sel) return;
-      const text = normalizeSelectedText(sel.text);
+      const text = selectedWordOf(session.book.kind, sel.text);
       switch (id) {
         case 'copy':
           void copyText(text).then((ok) => toast(ok ? ta('copiedNote') : tc('copyFailed')));
@@ -256,7 +260,7 @@ export function SelectionToolbar() {
       ref={ref}
       className={css.floating}
       data-testid="selection-toolbar"
-      style={{ left: place?.left ?? 0, top: place?.top ?? 0, visibility: place ? 'visible' : 'hidden' }}
+      style={{ left: place?.left ?? 0, top: place?.top ?? 0, visibility: place && !dragging ? 'visible' : 'hidden' }}
       onPointerDown={(e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -336,7 +340,7 @@ export function SelectionToolbar() {
 /** 在 (x,y) 处选词；没有坐标则选当前页首第一句。引擎没有 hitTest 接口，这里用 caretPositionFromPoint 在已知章节文档里反查 */
 async function startSelection(session: ReaderSession, x?: number, y?: number): Promise<void> {
   const { controller } = session;
-  const loc = controller.getLocation();
+  const loc = peekLocation(controller);
   const oneChar = dictSettings.get().oneCharDict;
   const locale = session.book.metadata.language;
 
@@ -358,31 +362,4 @@ async function startSelection(session: ReaderSession, x?: number, y?: number): P
   const text = await getSectionText(controller, loc.visible.section).catch(() => '');
   const r = firstSentenceFrom(text, loc.visible.start);
   if (r) controller.setSelection({ section: loc.visible.section, start: r.start, end: r.end });
-}
-
-/** 视口坐标 → (章节, 章内偏移)。靠 caretPositionFromPoint + 章节 body 反查，只对主文档/同源 iframe 有效 */
-function hitTestPoint(x: number, y: number): { section: number; offset: number } | null {
-  const docs = recentSectionDocs();
-  for (const { section, doc } of docs) {
-    const frame = doc.defaultView?.frameElement as HTMLElement | null;
-    const r = frame?.getBoundingClientRect();
-    const cx = x - (r?.left ?? 0);
-    const cy = y - (r?.top ?? 0);
-    const d = doc as Document & { caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null; caretRangeFromPoint?: (x: number, y: number) => Range | null };
-    let node: Node | null = null;
-    let off = 0;
-    const pos = d.caretPositionFromPoint?.(cx, cy);
-    if (pos) {
-      node = pos.offsetNode;
-      off = pos.offset;
-    } else {
-      const rg = d.caretRangeFromPoint?.(cx, cy);
-      if (rg) {
-        node = rg.startContainer;
-        off = rg.startOffset;
-      }
-    }
-    if (node && doc.body.contains(node)) return { section, offset: offsetOfPoint(doc.body, node, off) };
-  }
-  return null;
 }

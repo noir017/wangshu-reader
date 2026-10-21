@@ -30,7 +30,7 @@ export interface SearchSpec {
 export function TopBar(props: {
   title: ReactNode;
   subtitle?: ReactNode;
-  onTitleClick?: () => void;
+  onTitleClick?: (e: React.MouseEvent) => void;
   nav?: 'menu' | 'back';
   onNav?: () => void;
   actions?: ReactNode;

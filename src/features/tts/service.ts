@@ -11,6 +11,7 @@ import { pitchOf, rateOf, volumeOf } from './params';
 import { TtsRunner, type RunState } from './runner';
 import { ttsSettings } from './settings';
 import { tr } from './messages';
+import { peekLocation } from '../common/safe';
 
 interface TtsUi {
   state: RunState;
@@ -45,9 +46,9 @@ function createRunner(session: ReaderSession): TtsRunner {
   return new TtsRunner({
     sectionCount: () => sectionCount(controller),
     getText: (s) => getSectionText(controller, s),
-    getVisible: () => controller.getLocation()?.visible ?? null,
+    getVisible: () => peekLocation(controller)?.visible ?? null,
     isRangeVisible: (r) => controller.isRangeVisible(r),
-    atEnd: () => controller.getLocation()?.atEnd ?? false,
+    atEnd: () => peekLocation(controller)?.atEnd ?? false,
     next: () => controller.next(),
     prev: () => controller.prev(),
     goTo: (r) => controller.goTo({ range: r }),
@@ -92,7 +93,7 @@ async function ensureEngine(): Promise<boolean> {
 function bindMediaSession(session: ReaderSession, r: TtsRunner): void {
   const ms = navigator.mediaSession;
   if (!ms) return;
-  const loc = session.controller.getLocation();
+  const loc = peekLocation(session.controller);
   try {
     ms.metadata = new MediaMetadata({
       title: session.record.title,

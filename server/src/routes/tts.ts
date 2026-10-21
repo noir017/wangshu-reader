@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { mkdir, readdir, readFile, rename, stat, unlink, utimes, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { RouteModule } from '../index';
-import { defaultVoiceFor, listEdgeVoices, normalizeVoice, synthesizeEdge } from '../lib/edge-tts';
+import { listEdgeVoices, normalizeVoice, synthesizeEdge } from '../lib/edge-tts';
 import { espeakAvailable, listEspeakVoices, synthesizeEspeak } from '../lib/espeak';
 import { httpError } from '../util/http';
 
@@ -136,6 +136,5 @@ export const route: RouteModule = {
         headers: { 'Content-Type': 'audio/mpeg', 'Content-Length': String(audio.length), 'X-Tts-Engine': 'edge', 'X-Tts-Voice': voice, 'Cache-Control': 'private, max-age=86400' },
       });
     });
-    void defaultVoiceFor;
   },
 };

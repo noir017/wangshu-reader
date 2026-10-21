@@ -1,0 +1,43 @@
+.panel {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 890;
+  margin: 0 auto;
+  width: min(100%, 560px);
+  padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+  background: var(--mr-bar-bg);
+  color: var(--mr-bar-fg);
+  border-radius: 12px 12px 0 0;
+  box-shadow: 0 -4px 18px rgb(0 0 0 / 0.35);
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  /* 面板是深色底：滑块数值用浅灰，别用全局的 muted 灰 */
+  --mr-muted: rgb(255 255 255 / 0.72);
+}
+.panel input[type='range'] { accent-color: #8ab4f8; }
+.sliders { display: grid; grid-template-columns: 1fr; }
+.sliders > div { padding-top: 2px; padding-bottom: 2px; }
+.meta { display: flex; align-items: center; gap: 8px; padding: 0 16px; min-height: 28px; }
+.meta button { color: var(--mr-bar-fg); border-color: rgb(255 255 255 / 0.3); }
+.buttons { display: flex; justify-content: space-around; align-items: center; padding: 2px 0 0; }
+.buttons button {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+.buttons button:hover { background: rgb(255 255 255 / 0.14); }
+.buttons button:disabled { opacity: 0.35; cursor: default; }
+.buttons .play { width: 50px; height: 50px; background: rgb(255 255 255 / 0.18); }
+.countdown { border: none; background: transparent; color: inherit; font-variant-numeric: tabular-nums; font-size: 13px; cursor: pointer; padding: 2px 6px; }
+.countdown[data-urgent='true'] { color: #ff5252; font-size: 22px; font-weight: 700; }

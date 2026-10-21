@@ -3,6 +3,7 @@ import { navigate } from '@/core/router';
 import { openBookInfo, getAdjacentBook } from '@/library';
 import { screenSettings, themeSettings } from '@/reader/settings';
 import { getBookFile } from '@/storage/db';
+import { openNamesDialog } from '@/features';
 import { popupMenu, toast } from '@/ui';
 import type { ActionHost } from './actions';
 import { cycleThemes } from '../themes/theme-manager';
@@ -58,6 +59,7 @@ export function showOptionsMenu(host: ActionHost): void {
     { label: t('control_options'), onSelect: () => host.openOptions('control') },
     { label: t('miscellaneous'), onSelect: () => host.openOptions('misc') },
     { label: t('theme_menu'), onSelect: openThemeLoader },
+    { label: t('names_replacement'), onSelect: () => { const s = getSession(); if (s) openNamesDialog(s); } },
     { label: t('more_operations'), onSelect: () => showNavigateMenu(host) },
     { label: t('share'), onSelect: () => void shareBook() },
     { label: t('book_info'), onSelect: () => host.bookInfo() },

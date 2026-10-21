@@ -5,6 +5,7 @@ import { checkServer } from '@/core/server';
 import { getBook, getBookFile } from '@/storage/db';
 import { textSettings } from '@/reader/settings';
 import { detectFormat, openBook } from '@/formats';
+import { clearSavedPassword, getSavedPassword } from './password';
 
 export class BookNotFoundError extends Error {
   constructor() {
@@ -51,17 +52,26 @@ export async function loadBook(bookId: string, opts: { password?: string; signal
   if (parser?.needsServer && !(await checkServer())) throw new ServerNeededError(record.format || parser.format);
 
   const enc = textSettings.get().textEncode;
+  // 没有现成的密码时先试保存过的那个；它失效了（文件换了密码）就清掉，转入手动输入
+  const saved = opts.password === undefined ? await getSavedPassword(bookId) : undefined;
+  const password = opts.password ?? saved;
   try {
     const book = await openBook(file, {
       fileName: record.fileName,
       encoding: enc && enc !== 'auto' ? enc : undefined,
       signal: opts.signal,
-      extra: opts.password !== undefined ? { password: opts.password } : undefined,
+      extra: password !== undefined ? { password } : undefined,
     });
     return { record, book };
   } catch (e) {
     const pw = asPasswordError(e);
-    if (pw) throw pw;
+    if (pw) {
+      if (saved !== undefined) {
+        await clearSavedPassword(bookId);
+        throw new PasswordNeededError(false);
+      }
+      throw pw;
+    }
     // 服务端不可用导致的转换失败也归为「需要服务端」
     if ((e as Error)?.name === 'ServerUnavailableError') throw new ServerNeededError(record.format);
     throw e;

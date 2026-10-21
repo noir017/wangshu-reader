@@ -28,9 +28,15 @@ export type ServerFeature =
  * ANY /api/proxy?url=<编码后的目标 URL>
  * 方法、请求体原样转发（含 WebDAV 的 PROPFIND/MKCOL/MOVE/COPY）。
  * 转发的请求头：Accept、Content-Type、Depth、Destination、Overwrite、Range，
- * 以及 X-Proxy-Authorization → 目标的 Authorization（避免和服务端自身鉴权冲突）、X-Proxy-Cookie → Cookie。
+ * 以及 X-Proxy-Authorization → 目标的 Authorization（避免和服务端自身鉴权冲突）、X-Proxy-Cookie → Cookie、
+ * X-Proxy-User-Agent → User-Agent（不给则用服务端默认 UA）。
+ * 另有两个控制头：X-Proxy-Method 覆盖转发方法（浏览器发不出的方法可以借 POST 走），X-Proxy-Timeout 单次超时毫秒。
  * 响应：目标的状态码与 body；响应头保留 Content-Type、Content-Length、Content-Disposition、Content-Range、ETag、Last-Modified，
- * 并额外给 X-Proxy-Final-Url（跟随重定向后的最终 URL，OPDS 解析相对链接要用）。
+ * 并额外给：
+ * - X-Proxy-Final-Url：跟随重定向后的最终 URL（OPDS 解析相对链接要用）
+ * - X-Proxy-WWW-Authenticate：目标的 WWW-Authenticate（原样透传会触发浏览器自己的登录框，所以改名）
+ * - X-Proxy-Set-Cookie：目标的 Set-Cookie，可能有多条
+ * - X-Proxy-Error: 1：错误是代理自身产生的（地址非法、内网拦截、超时等），body 为 { error }；没有这个头的非 2xx 才是目标返回的
  */
 export const PROXY_PATH = '/api/proxy';
 
@@ -44,11 +50,13 @@ export const PROXY_PATH = '/api/proxy';
  */
 export const CONVERT_PATH = '/api/convert';
 
-/** POST /api/archive/list?name=<文件名> body: 压缩包 → 列出条目（导入「压缩包内的书」用） */
+/** POST /api/archive/list?name=<文件名> body: 压缩包 → 列出条目（导入「压缩包内的书」用）。带密码的压缩包回 422 */
+export const ARCHIVE_LIST_PATH = '/api/archive/list';
 export interface ArchiveListResponse {
   entries: { path: string; size: number; dir: boolean }[];
 }
 /** POST /api/archive/extract?name=<文件名>&entry=<条目路径> body: 压缩包 → 该条目文件流 */
+export const ARCHIVE_EXTRACT_PATH = '/api/archive/extract';
 
 // ───────────────────────── 内置 WebDAV ─────────────────────────
 /**
@@ -104,7 +112,7 @@ export interface DictResponse {
   /** 释义 HTML（服务端已清洗）；查不到时为空串 */
   html: string;
   phonetic?: string;
-  /** 发音音频 URL（经代理可直接播放） */
+  /** 发音音频的绝对 URL（指向本服务端 /api/dict/audio，设了令牌时已带 &token=），可直接给 <audio> 播放 */
   audio?: string;
 }
 /** GET /api/dict/sources → { sources: { id, name, langs }[] } */

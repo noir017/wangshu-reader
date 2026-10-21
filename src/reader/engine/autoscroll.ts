@@ -63,6 +63,10 @@ export class AutoScroller {
   /** 是否在滚（暂停时为 false） */
   running = false;
   private active = false;
+  /** 自动滚屏已开启（含暂停）：触摸要交给自动滚屏手势（点一下继续） */
+  get engaged(): boolean {
+    return this.active;
+  }
   private raf = 0;
   private last = 0;
   private carry = 0;
@@ -83,8 +87,9 @@ export class AutoScroller {
     return clamp(autoScrollSettings.get().autoScrollSpeed, 0, 100);
   }
 
+  /** 对外状态：running=正在滚；paused=已开启但暂停（点击可恢复）；两者都为 false = 真正停止 */
   private emitState(): void {
-    this.e.emit('autoScroll', { running: this.running, speed: this.speed() });
+    this.e.emit('autoScroll', { running: this.running, paused: this.active && !this.running, speed: this.speed() });
   }
 
   start(): void {
@@ -122,8 +127,8 @@ export class AutoScroller {
   stop(): void {
     if (!this.active) return;
     this.active = false;
-    const was = this.running;
     this.running = false;
+    this.rollTouchReset();
     cancelAnimationFrame(this.raf);
     this.raf = 0;
     this.endRoll(false);
@@ -133,8 +138,7 @@ export class AutoScroller {
     const anchor = e.currentAnchor();
     e.autoMode = null;
     if (anchor) void e.showAt(anchor);
-    if (was) this.emitState();
-    else this.e.emit('autoScroll', { running: false, speed: this.speed() });
+    this.emitState();
   }
 
   private pause(): void {
@@ -352,13 +356,20 @@ export class AutoScroller {
   }
 
   // ───────────── 触摸（auto_scroll_touch） ─────────────
+  private rollTouchReset(): void {
+    this.tSteps = 0;
+    this.tMoved = false;
+  }
+
   touchStart(_x: number, y: number): void {
+    if (!this.active) return;
     this.tStartY = y;
     this.tSteps = 0;
     this.tMoved = false;
   }
 
   touchMove(dx: number, dy: number, _x: number, _y: number): void {
+    if (!this.active) return; // 横拖已经把滚屏停掉了，同一次触摸后面的移动不再处理
     if (Math.abs(dx) > 80 && Math.abs(dx) > Math.abs(dy) * 1.5) {
       this.stop();
       return;

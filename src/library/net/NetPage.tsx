@@ -1,7 +1,7 @@
 // 网上书库（NET-001..009）：站点列表 → OPDS 浏览（分页/搜索/详情/下载）
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowDownToLine, ChevronLeft, ChevronRight, Cloud, ExternalLink, Folder, Home, Library, MoreVertical, Plus, Server } from 'lucide-react';
-import { IconButton, confirmDialog, popupMenu, toast } from '@/ui';
+import { IconButton, confirmDialog, popupMenu, promptDialog, toast } from '@/ui';
 import { hasServer } from '@/core/server';
 import { navigate, type Route } from '@/core/router';
 import { TopBar } from '../TopBar';
@@ -48,7 +48,9 @@ function CatalogList() {
       {
         label: t('delete'),
         onSelect: () =>
-          void confirmDialog(`${t('netDeleteConfirm')} ${c.title}`).then((ok) => ok && deleteCatalog(c.id)),
+          void confirmDialog(`${t('netDeleteConfirm')} ${c.title}`).then((ok) => {
+            if (ok) void deleteCatalog(c.id);
+          }),
       },
       { label: c.pinnedAt ? t('netUnpin') : t('netPin'), onSelect: () => void togglePinCatalog(c.id) },
     ]);
@@ -300,7 +302,6 @@ function Browse({ catalogId }: { catalogId: string }) {
           disabled={!info || !cur?.feed.nextUrl}
           onClick={async () => {
             if (!info || !cur) return;
-            const { promptDialog } = await import('@/ui');
             const v = await promptDialog(`${t('netGoPage')} (1-${info.pages})`, String(info.page));
             const p = Math.max(1, Math.min(info.pages, parseInt(v ?? '', 10) || 0));
             const url = p ? urlForPage(cur.feed, p) : undefined;

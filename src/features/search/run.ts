@@ -12,6 +12,7 @@ import { buildRegExp, findMatches, makeSnippet, MAX_RESULTS, snippetRadius } fro
 import { addSearchHistory } from './history';
 import { ts } from './messages';
 import { searchSettings } from './settings';
+import { peekLocation } from '../common/safe';
 
 export interface SearchResultItem {
   section: number;
@@ -102,7 +103,7 @@ export async function startSearch(session: ReaderSession, key: string): Promise<
 
   const { controller, book } = session;
   const total = sectionCount(controller);
-  const loc = controller.getLocation();
+  const loc = peekLocation(controller);
   const here = loc?.locator ?? { section: 0, offset: 0 };
   // 向后 = 只搜已读（当前位置之前），向前 = 只搜未读（当前位置之后）
   const first = o.forwardOnly ? here.section : 0;
@@ -173,7 +174,7 @@ export async function gotoResult(session: ReaderSession, i: number): Promise<voi
   const r = st.results[i];
   if (!r) return;
   if (!st.panel) {
-    const loc = session.controller.getLocation();
+    const loc = peekLocation(session.controller);
     clearLinkBack();
     if (loc) {
       const text = await getSectionText(session.controller, loc.locator.section).catch(() => '');

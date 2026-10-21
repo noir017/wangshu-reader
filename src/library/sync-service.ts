@@ -1,7 +1,7 @@
 // 同步的触发时机（SYNC-006）：打开书前预检、进入/离开阅读页、页面隐藏、回到书架时读 recent.list。
 // 阅读页是别的模块写的，这里不依赖它的任何接口：监听 hash 路由与数据库事件即可。
 import { confirmDialog, toast } from '@/ui';
-import { deviceId, dbEvents, getKV, getBook, setKV, getBookFile } from '@/storage/db';
+import { deviceId, dbEvents, findBooksByFileName, getKV, setKV } from '@/storage/db';
 import {
   clientFor,
   downloadRecent,
@@ -157,10 +157,7 @@ export async function checkCloudRecent(): Promise<void> {
 
 /** 本地是否已有这本书（按文件名 + 大小） */
 export async function findLocalByRecent(item: RecentItem): Promise<string | undefined> {
-  const { findBooksByFileName } = await import('@/storage/db');
   const hit = (await findBooksByFileName(item.localPath.replace(/^.*[\\/]/, ''))).find((b) => !item.size || b.size === item.size);
   return hit?.id;
 }
 
-void getBook;
-void getBookFile;

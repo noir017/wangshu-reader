@@ -9,6 +9,8 @@ export interface LineBox {
   atomic?: boolean;
   /** 文字字形盒的底（行盒底减去半行距）：窗口底边只要盖住字形就不算切行，比 oneLineTag 的比例更准 */
   ink?: number;
+  /** 文字字形盒的顶：相邻两行字形盒重叠（行高比字体盒小的标题）时，页底裁剪线要落在两者之间 */
+  inkTop?: number;
 }
 
 /** 一行露出多大比例才算显示（A.oneLineTag）：行距<0 → 1−lineSpace/10；否则 (lineSpace≥2 ? .75 : .82) + (亚洲语言 .1 : .08) */
@@ -23,10 +25,12 @@ export function mergeBoxes(boxes: LineBox[]): LineBox[] {
   const out: LineBox[] = [];
   for (const b of sorted) {
     const last = out[out.length - 1];
-    if (last && b.top < last.top + (last.bottom - last.top) * 0.5) {
+    // 不可拆分块（图片、表格行）吞掉与它重叠的行：表格单元格里垂直居中的多行文字会和相邻单元格交错，只能整行一起翻
+    if (last && (b.top < last.top + (last.bottom - last.top) * 0.5 || (last.atomic && b.top < last.bottom - 0.5))) {
       if (b.bottom > last.bottom) last.bottom = b.bottom;
       if (b.atomic) last.atomic = true;
       if (b.ink !== undefined && (last.ink === undefined || b.ink > last.ink)) last.ink = b.ink;
+      if (b.inkTop !== undefined && (last.inkTop === undefined || b.inkTop < last.inkTop)) last.inkTop = b.inkTop;
     } else {
       out.push({ ...b });
     }
@@ -74,6 +78,20 @@ export function lastShownLine(lines: LineBox[], y: number, H: number, tag: numbe
   if (i < first) return first;
   if (!isShown(lines[i], edge, tag) && i > first) i -= 1;
   return i;
+}
+
+/**
+ * 分页窗口的可见高度：裁到最后一个算「显示」的行的字形底，下一行露出的那截被盖住，页面上不会出现被腰斩的文字。
+ * 下一行的字形顶比这条线还高（行高小于字体盒的紧凑标题）时，裁剪线退到下一行字形顶。
+ */
+export function pageClipHeight(lines: LineBox[], y: number, H: number, tag: number): number {
+  const last = lastShownLine(lines, y, H, tag);
+  if (last < 0) return H;
+  const L = lines[last];
+  let b = L.atomic ? L.bottom : (L.ink ?? L.bottom);
+  const next = lines[last + 1];
+  if (next && next.inkTop !== undefined && next.inkTop < b) b = Math.max(next.inkTop, L.top + 1);
+  return Math.max(1, Math.min(H, Math.ceil(b - y)));
 }
 
 /** 向下翻页后的窗口顶；null = 已到章末（后面没有行了）。keepOne：保留上一页最后一行 */

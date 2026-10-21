@@ -6,7 +6,7 @@ import { currentLang } from '@/core/i18n';
 import type { ReaderLocation } from '@/core/reader';
 import { useReaderSession, type ReaderSession } from '@/core/reader-session';
 import { confirmDialog, IconButton, popupMenu, toast } from '@/ui';
-import { useBus, useControllerEvent, useLongPress } from '../common/hooks';
+import { useBus, useControllerEvent, useFocusAndEscape, useLongPress } from '../common/hooks';
 import { useLinkBack, linkBackTitle, popLinkBack, popLinkBackTo, pushLinkBack } from '../common/linkback';
 import { placeNear, type Placement } from '../common/position';
 import { sanitizeHtml } from '../common/sanitize';
@@ -14,6 +14,7 @@ import { getSectionText } from '../common/section-text';
 import css from '../common/features.module.css';
 import { classifyHref, openableHref, pickBackLocation } from './links';
 import { tf } from './messages';
+import { peekLocation } from '../common/safe';
 
 interface FootState {
   html: string;
@@ -28,11 +29,7 @@ function FootnoteBubble({ foot, onClose }: { foot: FootState; onClose: () => voi
     if (!el) return;
     setPlace(placeNear(foot.rect, { width: el.offsetWidth, height: el.offsetHeight }, { width: window.innerWidth, height: window.innerHeight }, { prefer: 'below', gap: 10 }));
   }, [foot]);
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  useFocusAndEscape(ref, onClose, !!place);
   return createPortal(
     <>
       <div className={css.floating} style={{ inset: 0, zIndex: 889 }} onPointerDown={onClose} />
@@ -40,7 +37,8 @@ function FootnoteBubble({ foot, onClose }: { foot: FootState; onClose: () => voi
         ref={ref}
         className={css.bubble}
         data-testid="footnote-popup"
-        style={{ width: 'min(92vw, 420px)', left: place?.left ?? 0, top: place?.top ?? 0, visibility: place ? 'visible' : 'hidden', zIndex: 901 }}
+        tabIndex={-1}
+        style={{ outline: 'none', width: 'min(92vw, 420px)', left: place?.left ?? 0, top: place?.top ?? 0, visibility: place ? 'visible' : 'hidden', zIndex: 901 }}
         onPointerDown={(e) => e.stopPropagation()}
       >
         <div className={css.bubbleHead}>
@@ -120,11 +118,15 @@ function LinkBackButton({ session }: { session: ReaderSession }) {
   );
 }
 
-export function LinkHost() {
+/**
+ * showBackButton：是否画 features 自己的「返回」悬浮按钮。reader/ui 已经有一套返回按钮与栈，默认不画，
+ * 免得页面上出现两个；栈本身照常维护（搜索导航面板的「返回」用它）。
+ */
+export function LinkHost({ showBackButton = false }: { showBackButton?: boolean }) {
   const session = useReaderSession();
   const { controller } = session;
   const [foot, setFoot] = useState<FootState | null>(null);
-  const loc = useRef<{ prev?: ReaderLocation; cur?: ReaderLocation; at: number }>({ cur: controller.getLocation() ?? undefined, at: 0 });
+  const loc = useRef<{ prev?: ReaderLocation; cur?: ReaderLocation; at: number }>({ cur: peekLocation(controller) ?? undefined, at: 0 });
 
   useControllerEvent('relocate', (l) => {
     loc.current = { prev: loc.current.cur, cur: l, at: Date.now() };
@@ -138,7 +140,7 @@ export function LinkHost() {
       return;
     }
     if (e.internal) {
-      const here = pickBackLocation(loc.current.prev, controller.getLocation() ?? loc.current.cur, loc.current.at, Date.now());
+      const here = pickBackLocation(loc.current.prev, peekLocation(controller) ?? loc.current.cur, loc.current.at, Date.now());
       if (here) void backEntryOf(session, here).then(pushLinkBack);
       return;
     }
@@ -163,7 +165,7 @@ export function LinkHost() {
   return (
     <>
       {foot && <FootnoteBubble foot={foot} onClose={closeFoot} />}
-      <LinkBackButton session={session} />
+      {showBackButton && <LinkBackButton session={session} />}
     </>
   );
 }

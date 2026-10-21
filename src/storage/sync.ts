@@ -34,6 +34,7 @@ import {
   moonNoteToAnnotation,
   noteKey,
   parsePositionString,
+  type MoonPosition,
   type RecentItem,
 } from './moon-formats';
 import { createDavTransport, DavClient, davAvailable, normPath, type DavConfig } from './webdav';
@@ -95,6 +96,12 @@ interface PoSidecar {
   bookId: string;
 }
 
+/** 原版位置串 → 本应用的 section/offset。PDF/漫画的位置串没有 #，冒号前是页码（positionToString 写出时同样如此） */
+export function locatorFromMoon(moon: MoonPosition, raw: string, fixed: boolean): { section: number; offset: number } {
+  if (fixed && !raw.includes('#')) return { section: moon.position, offset: 0 };
+  return { section: moon.chapter, offset: moon.position };
+}
+
 export function positionToString(book: Pick<BookRecord, 'format'>, pos: PositionRecord): string {
   return formatPositionString({ chapter: pos.locator.section, position: pos.locator.offset, percent: pos.progress * 100 }, isFixedFormat(book.format));
 }
@@ -152,8 +159,7 @@ export async function downloadPosition(dav: DavClient, cfg: SyncConfig, book: Bo
   }
   return {
     deviceId: po.deviceId,
-    section: moon.chapter,
-    offset: moon.position,
+    ...locatorFromMoon(moon, po.position, isFixedFormat(book.format)),
     progress: Math.min(1, Math.max(0, (moon.percent ?? 0) / 100)),
     updatedAt: 0,
     webY: po.webY,
@@ -297,11 +303,11 @@ export async function downloadBookFile(dav: DavClient, cfg: SyncConfig, fileName
 export async function importPoText(bookId: string, text: string): Promise<boolean> {
   const po = decodePo(text);
   const moon = po ? parsePositionString(po.position) : null;
-  if (!po || !moon) return false;
+  const book = await getBook(bookId);
+  if (!po || !moon || !book) return false;
   await applyRemotePosition(bookId, {
     deviceId: po.deviceId,
-    section: moon.chapter,
-    offset: moon.position,
+    ...locatorFromMoon(moon, po.position, isFixedFormat(book.format)),
     progress: Math.min(1, Math.max(0, (moon.percent ?? 0) / 100)),
     updatedAt: 0,
     webY: po.webY,

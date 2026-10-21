@@ -66,10 +66,11 @@ export function themeList(): ThemeEntry[] {
   const user = themeSettings.get().userThemes;
   const hidden = new Set(uiSettings.get().hiddenThemes);
   const builtins = builtinMap();
-  const names = new Set<string>();
-  for (const n of builtins.keys()) if (!hidden.has(n)) names.add(n);
-  for (const n of Object.keys(user)) if (n !== TEMP_THEME) names.add(n);
-  return sortThemeNames([...names]).map((name) => {
+  // 内置主题按原顺序排好；用户新存的主题按保存先后接在后面（原 saveTheme 插在临时主题之前，不重排）
+  const base = sortThemeNames([...builtins.keys()].filter((n) => !hidden.has(n)));
+  const extra = Object.keys(user).filter((n) => n !== TEMP_THEME && !builtins.has(n));
+  const names = [...base, ...extra];
+  return names.map((name) => {
     const u = user[name];
     return u ? { name, data: userToData(u), builtin: builtins.has(name) } : { name, data: builtins.get(name)!, builtin: true };
   });

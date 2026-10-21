@@ -130,7 +130,7 @@ export class Gestures {
         this.ptrs.set(p.id, p);
         return;
       }
-      this.mode = e.autoscroll.running ? 'auto' : 'pending';
+      this.mode = e.autoscroll.engaged ? 'auto' : 'pending';
       this.edgeStartX = pt.x;
       // 点击正文即把焦点给阅读区，键盘事件才能收到
       if (ev.pointerType === 'mouse') e.root?.focus({ preventScroll: true });

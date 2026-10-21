@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Book, TocEntry } from '@/core/book';
-import { ancestorKeys, chapterTitleOf, cleanChapterTitle, currentTocIndex, fallbackToc, flattenToc, progressOf, visibleRows } from './toc-utils';
+import { ancestorKeys, chapterTitleOf, tocRequestOf, cleanChapterTitle, currentTocIndex, fallbackToc, flattenToc, progressOf, visibleRows } from './toc-utils';
 
 const toc: TocEntry[] = [
   { title: '卷一', level: 1, section: 0, children: [
@@ -64,5 +64,15 @@ describe('toc-utils', () => {
     expect(progressOf(b, 0, 0)).toBe(0);
     expect(progressOf(b, 1, 150)).toBeCloseTo(250 / 500);
     expect(progressOf(b, 2, 9999)).toBe(1);
+  });
+});
+
+describe('toc.open 的标签映射', () => {
+  it('笔记/高亮落在书签页的筛选上', () => {
+    expect(tocRequestOf(undefined)).toEqual({ tab: 'toc' });
+    expect(tocRequestOf('toc')).toEqual({ tab: 'toc' });
+    expect(tocRequestOf('bookmarks')).toEqual({ tab: 'bookmarks' });
+    expect(tocRequestOf('notes')).toEqual({ tab: 'bookmarks', filter: 2 });
+    expect(tocRequestOf('highlights')).toEqual({ tab: 'bookmarks', filter: 3 });
   });
 });

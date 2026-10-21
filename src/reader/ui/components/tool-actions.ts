@@ -1,4 +1,5 @@
 // 工具按钮的点击与长按行为（VIEW-004 / VIEW-005）。长按菜单用 popupMenu，锚点在按钮上方。
+import { syncFromCloud, syncToCloud } from '@/library';
 import { autoScrollSettings, controlSettings, flipSettings, screenSettings, textSettings } from '@/reader/settings';
 import { popupMenu, toast, type MenuItem } from '@/ui';
 import type { ActionHost } from '../actions/actions';
@@ -16,6 +17,7 @@ import { adjustBrightness, setBrightness } from '../services/brightness-actions'
 import { applyScreenState, isLandscapeNow, nextScreenState, orientationSupported } from '../services/system';
 import { clampFontSize } from '../settings/options-data';
 import { currentLocator, getSession, sectionCount, stepChapter } from '../ops';
+import { useReaderUi } from '../store';
 import { t } from '../messages';
 
 export interface Anchor {
@@ -93,9 +95,13 @@ export function toolClick(id: number, host: ActionHost): void {
       openToolbarCustomizer();
       break;
     case ToolButton.SyncUp:
-    case ToolButton.SyncDown:
-      toast(t('sync_in_settings'));
+    case ToolButton.SyncDown: {
+      const s = getSession();
+      if (!s) break;
+      useReaderUi.getState().setMenu(false);
+      void (id === ToolButton.SyncUp ? syncToCloud(s.bookId) : syncFromCloud(s.bookId));
       break;
+    }
   }
 }
 
@@ -168,6 +174,10 @@ export function toolLongPress(id: number, host: ActionHost, a: Anchor): void {
         { label: t('font_minus'), onSelect: () => textSettings.set({ fontSize: clampFontSize(textSettings.get().fontSize - 1) }) },
       ]);
       return;
+    case ToolButton.Speak:
+      // 朗读按钮长按菜单由 features 的朗读模块弹出（tts.menu 不在 ReaderCommands 里，约定带按钮坐标）
+      getSession()?.bus.emit('tts.menu', { x: a.x - 90, y: a.y - 140 });
+      return;
     case ToolButton.Tilt:
       openTiltDialog();
       return;
@@ -183,4 +193,3 @@ export function toolLongPress(id: number, host: ActionHost, a: Anchor): void {
 
 void flipSettings;
 void openSettings;
-void getSession;

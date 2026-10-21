@@ -26,31 +26,44 @@ const existence = new WeakMap<Book, Promise<boolean>>();
 
 export interface ScanOptions {
   onProgress?: (done: number, total: number) => void;
+  /** 只是不再等结果：整本扫描是共享且带缓存的，不能因为某个调用方放弃（面板关了、StrictMode 重挂载）就中断 */
   signal?: AbortSignal;
+}
+
+const progressListeners = new WeakMap<Book, Set<(done: number, total: number) => void>>();
+
+function waitWithSignal<T>(p: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) return p;
+  if (signal.aborted) return Promise.reject(new DOMException('aborted', 'AbortError'));
+  return Promise.race([p, new Promise<T>((_, reject) => signal.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')), { once: true }))]);
 }
 
 export function scanBookImages(book: Book, opts: ScanOptions = {}): Promise<BookImage[]> {
   if (book.kind !== 'reflowable') return Promise.resolve([]);
+  if (opts.onProgress) {
+    let set = progressListeners.get(book);
+    if (!set) progressListeners.set(book, (set = new Set()));
+    set.add(opts.onProgress);
+  }
   const hit = cache.get(book);
-  if (hit) return hit;
+  if (hit) return waitWithSignal(hit, opts.signal);
   const p = (async () => {
     const out: BookImage[] = [];
     const secs = book.sections;
     for (let s = 0; s < secs.length; s++) {
-      if (opts.signal?.aborted) throw new DOMException('aborted', 'AbortError');
       try {
         const content = await secs[s].load();
         extractImageSrcs(content.bodyHtml).forEach((src, index) => out.push({ src, section: s, index }));
       } catch {
         /* 单章加载失败不影响其余 */
       }
-      opts.onProgress?.(s + 1, secs.length);
+      for (const fn of progressListeners.get(book) ?? []) fn(s + 1, secs.length);
     }
     return out;
   })();
   p.catch(() => cache.delete(book));
   cache.set(book, p);
-  return p;
+  return waitWithSignal(p, opts.signal);
 }
 
 /** 是否有图：整本扫描过就用结果，否则抽样最多 40 章（均匀分布）快速判断 */

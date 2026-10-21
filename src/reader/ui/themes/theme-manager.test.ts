@@ -145,7 +145,7 @@ describe('载入主题（A.loadTheme）', () => {
     loadTheme('Night 1 (True black)');
     expect(themeSettings.get().nightMode).toBe(true);
     expect(isWhiteFont('#FFFFFF')).toBe(true);
-    expect(isWhiteFont('#777777')).toBe(false);
+    expect(isWhiteFont('#707070')).toBe(false); // R+G+B = 336 ≤ 355
   });
 });
 

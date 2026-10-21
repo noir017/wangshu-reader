@@ -1,5 +1,5 @@
 // 会话/引擎事件订阅的 React 封装：回调用 ref 保存最新值，避免每次渲染重新订阅。
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type RefObject } from 'react';
 import type { ReaderCommands } from '@/core/reader-session';
 import { useReaderSession } from '@/core/reader-session';
 import type { ReaderEvents } from '@/core/reader';
@@ -49,4 +49,28 @@ export function useLongPress(onLong: () => void, ms = 500) {
       return f;
     },
   };
+}
+
+/**
+ * 气泡/卡片弹出时的键盘处理：
+ * 1) 把焦点移进来——点正文后键盘焦点在章节 iframe 里，那里的按键只会经引擎的 key 事件交给 reader/ui（Esc = 退出阅读器），
+ *    弹层必须先拿到焦点，Esc 才只关弹层；
+ * 2) 在 window 捕获阶段处理 Esc 并 stopPropagation，reader/ui 的兜底监听就不会再收到。
+ */
+export function useFocusAndEscape(ref: RefObject<HTMLElement | null>, onClose: () => void, ready = true): void {
+  const cb = useRef(onClose);
+  cb.current = onClose;
+  // visibility:hidden 的元素聚焦不了：弹层先隐藏着算位置，定好位置（ready）后再聚焦
+  useEffect(() => {
+    if (ready) ref.current?.focus({ preventScroll: true });
+  }, [ref, ready]);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.stopPropagation();
+      cb.current();
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [ref]);
 }

@@ -1,7 +1,6 @@
 // zip 访问封装（jszip）。EPUB/CBZ/DOCX/ODT/FB2.ZIP/压缩包书都走这里。
 import JSZip from 'jszip';
-import { decodeBytes, detectEncoding, normalizeEncoding } from '../encoding';
-import { decodeMarkup } from '../encoding';
+import { decodeBytes, decodeMarkup, guessNameEncoding } from '../encoding';
 import { mimeOf } from './mime';
 
 export interface ZipArchive {
@@ -18,18 +17,6 @@ export interface ZipArchive {
   /** 标记语言文本：BOM / XML 声明 / meta charset / 自动检测 */
   markup(path: string): Promise<string>;
   blob(path: string, type?: string): Promise<Blob>;
-}
-
-/** zip 里没有 UTF-8 标志位的文件名：先严格 UTF-8，不行再按内容猜 GBK/Big5/Shift_JIS（FMT-001） */
-function decodeZipName(bytes: ArrayLike<number> | string[]): string {
-  const u8 = bytes instanceof Uint8Array ? bytes : Uint8Array.from(bytes as ArrayLike<number>);
-  try {
-    return new TextDecoder('utf-8', { fatal: true }).decode(u8);
-  } catch {
-    /* 非 UTF-8 */
-  }
-  const enc = normalizeEncoding(detectEncoding(u8).encoding) ?? 'gbk';
-  return decodeBytes(u8, enc === 'utf-8' ? 'gbk' : enc);
 }
 
 export function normalizePath(path: string): string {
@@ -60,7 +47,20 @@ export function safeDecodeURI(s: string): string {
 }
 
 export async function openZip(source: Blob | Uint8Array | ArrayBuffer): Promise<ZipArchive> {
-  const zip = await JSZip.loadAsync(source as Blob, { decodeFileName: decodeZipName as never });
+  const data = source instanceof Blob ? new Uint8Array(await source.arrayBuffer()) : source instanceof Uint8Array ? source : new Uint8Array(source);
+  // 没有 UTF-8 标志位的文件名（FMT-001：旧 Windows 压缩软件按系统代码页写 GBK/Big5/Shift_JIS）：
+  // 第一遍只收集原始字节，整包一起猜编码，再按它重新读一遍目录（只在出现这种名字时才多读一遍）
+  const raw: Uint8Array[] = [];
+  const collect = (bytes: ArrayLike<number>) => {
+    const u = Uint8Array.from(bytes);
+    raw.push(u);
+    return String.fromCharCode(...u);
+  };
+  let zip = await JSZip.loadAsync(data, { decodeFileName: collect as never });
+  if (raw.length) {
+    const enc = guessNameEncoding(raw);
+    zip = await JSZip.loadAsync(data, { decodeFileName: ((bytes: ArrayLike<number>) => decodeBytes(Uint8Array.from(bytes), enc)) as never });
+  }
   const names: string[] = [];
   const lower = new Map<string, string>();
   zip.forEach((path, entry) => {

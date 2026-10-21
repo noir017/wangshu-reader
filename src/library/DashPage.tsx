@@ -8,11 +8,12 @@ import type { BookRecord } from '@/core/library';
 import { BookCover } from './BookCover';
 import { TopBar } from './TopBar';
 import { recentBooks, useLibrary } from './data';
-import { DEFAULT_FAV, filesSettings, shelfSettings } from './settings';
+import { DEFAULT_FAV, filesSettings, shelfSettings, syncSettings } from './settings';
 import { openBook } from './open';
 import { useCatalogs } from './catalogs';
 import { computeStatCards, type StatCards } from './stats';
 import { clearAllStatistics } from './actions';
+import { openCloudImport } from './files/CloudImport';
 import { openFavFolders } from './files/FavFolders';
 import { openImportDialog } from './ImportDialogs';
 import { showBookMenu } from './book-menu';
@@ -125,6 +126,7 @@ export function DashPage() {
   const cards = useStatCards();
   const favName = shelfSettings.use((x) => x.recentFavName);
   const favFolders = filesSettings.use((x) => x.favFolders);
+  const showDav = filesSettings.use((x) => x.showDavInFavorites) && syncSettings.use((x) => x.enabled);
   const [noteBooks, setNoteBooks] = useState<string[]>([]);
 
   useEffect(() => {
@@ -227,8 +229,13 @@ export function DashPage() {
           }
           onMore={() => navigate('files')}
         >
-          {favFolders.length > 0 && (
+          {(favFolders.length > 0 || showDav) && (
             <div className={s.hscroll}>
+              {showDav && (
+                <button className={s.tag} style={{ border: 'none', cursor: 'pointer', fontSize: 13, padding: '6px 12px', flex: 'none' }} onClick={openCloudImport}>
+                  <Cloud size={13} /> [WebDav]
+                </button>
+              )}
               {favFolders.map((p) => (
                 <button key={p} className={s.tag} style={{ border: 'none', cursor: 'pointer', fontSize: 13, padding: '6px 12px', flex: 'none' }} onClick={() => navigate('files', { path: p })}>
                   <Folder size={13} /> {p.split('/').filter(Boolean).pop() ?? t('filesRoot')}

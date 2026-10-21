@@ -75,11 +75,13 @@ export function ScrollLock() {
   const fixed = useReaderUi((x) => x.session?.book.kind === 'fixed');
   const menu = useReaderUi((x) => x.menu);
   const locked = fixedSettings.use((f) => f.pdfScrollLock);
+  const thumbs = fixedSettings.use((f) => f.pdfShowThumb);
   if (!fixed || menu) return null;
   return (
     <button
       type="button"
       className={s.lockBtn}
+      data-thumbs={thumbs ? 'true' : undefined}
       aria-label={t('pdf_scroll_lock')}
       onClick={() => {
         fixedSettings.set({ pdfScrollLock: !locked });

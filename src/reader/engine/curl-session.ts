@@ -4,6 +4,13 @@
 import type { ChapterFrame } from './frame';
 import type { Engine } from './controller';
 import type { FlipSession } from './animator';
+
+/** 仿真翻页只需要的舞台信息（可重排引擎、固定版式引擎都能给） */
+export interface CurlHost {
+  root: HTMLElement;
+  boxW: number;
+  boxH: number;
+}
 import { averageColor, getPageTexture } from './raster';
 import { createCurlRenderer, type CurlRenderer, type CurlScene } from './curl-render';
 import { curlFromPointer, curlMesh, googleMesh, type Rect } from './curl';
@@ -16,7 +23,7 @@ export class CurlSession implements FlipSession {
   private lastP = 0;
 
   private constructor(
-    private e: Engine,
+    private e: CurlHost,
     private anim: number,
     private dir: 1 | -1,
     private renderer: CurlRenderer,
@@ -45,6 +52,12 @@ export class CurlSession implements FlipSession {
     } catch {
       return null;
     }
+    return CurlSession.fromTextures({ root: e.root!, boxW: e.boxW, boxH: e.boxH }, anim, dir, texA, texB, click);
+  }
+
+  /** 由相邻两屏的整屏纹理（尺寸 = 阅读区 × dpr）直接创建；texA = 当前屏，texB = 目标屏 */
+  static async fromTextures(e: CurlHost, anim: number, dir: 1 | -1, texA: HTMLCanvasElement, texB: HTMLCanvasElement, click: boolean): Promise<CurlSession> {
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
     const texF = dir > 0 ? texA : texB;
     const texU = dir > 0 ? texB : texA;
     let renderer = createCurlRenderer(e.boxW, e.boxH, dpr);
@@ -63,7 +76,7 @@ export class CurlSession implements FlipSession {
     const tint: [number, number, number] = [Math.max(r * 0.97, 25), Math.max(g * 0.97, 25), Math.max(bl * 0.97, 25)];
     const s = new CurlSession(e, anim, dir, renderer, texF, tint, backAlpha, click);
     s.paint(0);
-    e.root!.appendChild(renderer.canvas);
+    e.root.appendChild(renderer.canvas);
     return s;
   }
 

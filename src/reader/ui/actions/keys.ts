@@ -20,13 +20,14 @@ export function keyName(e: KeyLike): string {
 
 /** 查映射；Shift+空格 = 与 PageUp 相同（浏览器惯例）。没有绑定返回 undefined */
 export function keyAction(keyMap: Record<string, ReaderActionId>, e: KeyLike): ReaderActionId | undefined {
-  const name = keyName(e);
-  if (name in keyMap) return keyMap[name];
-  if (e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
-    if (e.key === ' ' && 'PageUp' in keyMap) return keyMap.PageUp;
+  const plain = !e.ctrlKey && !e.metaKey && !e.altKey;
+  if (e.shiftKey && plain) {
+    // 显式绑定的 Shift+X 优先；否则 Shift+空格 当 PageUp（要在普通空格之前判断）
     if (e.key.length > 1 && `Shift+${e.key}` in keyMap) return keyMap[`Shift+${e.key}`];
+    if ((e.key === ' ' || e.key === 'Spacebar') && 'PageUp' in keyMap) return keyMap.PageUp;
   }
-  return undefined;
+  const name = keyName(e);
+  return name in keyMap ? keyMap[name] : undefined;
 }
 
 /** 输入控件里的按键不处理 */

@@ -82,8 +82,18 @@ export function harden(root: Element): void {
   }
 }
 
-/** 就地清洗 root（root 必须是白名单内的普通元素，如 div） */
+/**
+ * 就地清洗 root（root 必须是白名单内的普通元素，如 div）。
+ * DOMPurify 的就地模式在「树一直在变」时会抛 TypeError 并把 root 清空（fail closed）；happy-dom 里元素数上千就会触发，
+ * 浏览器里不应出现，但章节清洗失败等于整章空白，所以先备份、失败时改走「字符串进、字符串出」的路径。
+ */
 export function sanitizeElement(root: HTMLElement): void {
-  DOMPurify.sanitize(root, PURIFY_CONFIG as never);
+  const backup = root.innerHTML;
+  try {
+    DOMPurify.sanitize(root, PURIFY_CONFIG as never);
+  } catch {
+    const { IN_PLACE: _inPlace, ...config } = PURIFY_CONFIG;
+    root.innerHTML = String(DOMPurify.sanitize(backup, config as never));
+  }
   harden(root);
 }

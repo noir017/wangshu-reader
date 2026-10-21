@@ -11,6 +11,8 @@ export interface ReaderUiState {
   loc: ReaderLocation | null;
   /** 顶栏 + 底栏是否显示 */
   menu: boolean;
+  /** 点底栏 ◀/▶ 换章时只收起顶栏（VIEW-003），再次呼出菜单时恢复 */
+  hideTop: boolean;
   panel: PanelId;
   /** 自动滚屏：运行中 / 被点击暂停（暂停时引擎已停止，恢复时重新 start） */
   autoRunning: boolean;
@@ -23,6 +25,7 @@ export interface ReaderUiState {
   setSession(s: ReaderSession | null): void;
   setLoc(l: ReaderLocation | null): void;
   setMenu(v: boolean): void;
+  setHideTop(v: boolean): void;
   toggleMenu(): void;
   setPanel(p: PanelId): void;
   setAuto(p: { running?: boolean; paused?: boolean }): void;
@@ -36,6 +39,7 @@ export const useReaderUi = create<ReaderUiState>((set, get) => ({
   session: null,
   loc: null,
   menu: false,
+  hideTop: false,
   panel: null,
   autoRunning: false,
   autoPaused: false,
@@ -44,7 +48,8 @@ export const useReaderUi = create<ReaderUiState>((set, get) => ({
   ready: false,
   setSession: (session) => set({ session, ready: !!session }),
   setLoc: (loc) => set({ loc }),
-  setMenu: (menu) => set((s) => (s.menu === menu ? s : { menu, panel: menu ? null : s.panel })),
+  setMenu: (menu) => set((s) => (s.menu === menu ? s : { menu, hideTop: false, panel: menu ? null : s.panel })),
+  setHideTop: (hideTop) => set({ hideTop }),
   toggleMenu: () => get().setMenu(!get().menu),
   // 面板（字号/亮度）打开时收起菜单栏；点击正文先关面板（同菜单栏的规则）
   setPanel: (panel) => set((s) => ({ panel, menu: panel ? false : s.menu })),
@@ -67,5 +72,5 @@ export const useReaderUi = create<ReaderUiState>((set, get) => ({
 
 /** 重置（离开阅读页时） */
 export function resetReaderUi(): void {
-  useReaderUi.setState({ session: null, loc: null, menu: false, panel: null, autoRunning: false, autoPaused: false, speedRead: false, linkBack: [], ready: false });
+  useReaderUi.setState({ session: null, loc: null, menu: false, hideTop: false, panel: null, autoRunning: false, autoPaused: false, speedRead: false, linkBack: [], ready: false });
 }

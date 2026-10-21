@@ -93,6 +93,10 @@ export interface ReadingStatRecord {
   usedMs: number;
   words: number;
   days: Record<number, { ms: number; words: number }>;
+  /** 翻过的页数（STAT-003 第 3/5/6 张卡片）；老记录没有 */
+  pages?: number;
+  /** 按 dayNumber 记的翻页数 */
+  dayPages?: Record<number, number>;
 }
 
 export interface FontRecord {

@@ -295,6 +295,34 @@ export function detectEncoding(bytes: Uint8Array): DetectedEncoding {
   return { encoding: 'windows-1252', bom: 0, confidence: 0.2 };
 }
 
+/**
+ * zip 里没有 UTF-8 标志位的文件名：整包一起判断（单个文件名太短，逐个检测会把 GBK 判成 cp1251 之类）。
+ * 全部是合法 UTF-8 就当 UTF-8；否则在 GBK/Big5/Shift_JIS/EUC-KR 里先用 fatal 解码排除无效序列，再按常用汉字、假名、谚文打分，平手偏向 GBK。
+ */
+export function guessNameEncoding(names: Uint8Array[]): string {
+  const joined = new Uint8Array(names.reduce((n, b) => n + b.length + 1, 0));
+  let o = 0;
+  for (const b of names) {
+    joined.set(b, o);
+    o += b.length;
+    joined[o++] = 0x0a;
+  }
+  if (strictUtf8(joined)) return 'utf-8';
+  let best = { enc: 'gbk', score: -Infinity };
+  for (const enc of ['gbk', 'big5', 'shift_jis', 'euc-kr']) {
+    let text: string;
+    try {
+      text = new TextDecoder(enc, { fatal: true }).decode(joined);
+    } catch {
+      continue;
+    }
+    const st = stat(text);
+    const score = st.zhCommon * 2 + (st.cjk - st.zhCommon) + (enc === 'shift_jis' ? st.kana * 3 : 0) + (enc === 'euc-kr' ? st.koCommon * 2 : 0) - (st.weird + st.halfKana + st.bad) * 3;
+    if (score > best.score) best = { enc, score };
+  }
+  return best.enc;
+}
+
 /** 解码结果 + 实际使用的编码。encoding 为 'auto' / 空 / 不支持时自动检测 */
 export function decodeAuto(bytes: Uint8Array, encoding?: string | null): { text: string; encoding: string; detected: boolean } {
   const forced = normalizeEncoding(encoding ?? undefined);

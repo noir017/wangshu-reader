@@ -7,7 +7,7 @@ import type { Locator, TextRange } from '@/core/book';
 import type { AnnotationRecord } from '@/core/library';
 import type { ReaderSession } from '@/core/reader-session';
 import { useReaderSession } from '@/core/reader-session';
-import { Button, openOverlay, Row, Sheet, Switch, TextInput, toast } from '@/ui';
+import { Button, openOverlay, popupMenu, Row, Sheet, Switch, TextInput, toast } from '@/ui';
 import { formatDateTime } from '../common/format';
 import { isCjkText } from '../common/format';
 import { useControllerEvent } from '../common/hooks';
@@ -21,6 +21,7 @@ import { annoSettings, bookmarkColorOf } from './settings';
 import { currentAnnotations, useAnnotations } from './store';
 import css from '../common/features.module.css';
 import { currentLang } from '@/core/i18n';
+import { peekLocation } from '../common/safe';
 
 /** 书签角标是否算「在当前页」：书签位置落在可见区间内 */
 export function bookmarksOnPage(list: AnnotationRecord[], visible: TextRange | undefined): AnnotationRecord[] {
@@ -124,7 +125,7 @@ export async function editBookmark(a: AnnotationRecord): Promise<void> {
  */
 export async function toggleBookmark(session: ReaderSession, opts: { at?: Locator; silent?: boolean; addOnly?: boolean } = {}): Promise<void> {
   const { controller } = session;
-  const loc = controller.getLocation();
+  const loc = peekLocation(controller);
   const list = currentAnnotations();
   let at = opts.at;
   if (!at) {
@@ -177,7 +178,7 @@ export async function toggleBookmark(session: ReaderSession, opts: { at?: Locato
 export function BookmarkCorner() {
   const session = useReaderSession();
   const { controller } = session;
-  const [visible, setVisible] = useState<TextRange | undefined>(() => controller.getLocation()?.visible);
+  const [visible, setVisible] = useState<TextRange | undefined>(() => peekLocation(controller)?.visible);
   useControllerEvent('relocate', (loc) => setVisible(loc.visible));
   const items = useAnnotations((s) => s.items);
   const enabled = annoSettings.use((s) => s.bookmarkCorner);
@@ -209,7 +210,19 @@ export function BookmarkCorner() {
       onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => {
         e.stopPropagation();
-        void toggleBookmark(session);
+        if (!marked) return void toggleBookmark(session);
+        // 已有书签时角标是画出来的旗子（可视书签）：点它弹「编辑 / 删除」（ANNO-007）
+        const r = e.currentTarget.getBoundingClientRect();
+        popupMenu(r.right - 180, r.bottom, [
+          { label: tc('edit'), onSelect: () => void editBookmark(marks[0]) },
+          {
+            label: tc('delete'),
+            onSelect: async () => {
+              for (const b of marks) await removeAnnotation(b.id);
+              toast(ta('bookmarkRemoved'));
+            },
+          },
+        ]);
       }}
     >
       {marked && <Bookmark size={26} fill={color} color={color} style={{ marginTop: -2, filter: 'drop-shadow(0 1px 1px rgb(0 0 0 / 0.35))' }} />}

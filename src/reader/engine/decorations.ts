@@ -7,7 +7,7 @@ import type { ChapterFrame } from './frame';
 import type { Engine } from './controller';
 import { invalidateRaster } from './raster';
 
-const DEFAULT_COLOR: Record<DecorationStyle, string> = {
+export const DECO_DEFAULT_COLOR: Record<DecorationStyle, string> = {
   highlight: 'rgba(255,213,0,0.40)',
   underline: '#e53935',
   strikethrough: '#e53935',
@@ -79,7 +79,7 @@ export class Decorations {
         if (d.range.section !== f.section) continue;
         const r = f.text.range(d.range.start, d.range.end);
         if (!r || r.collapsed) continue;
-        const color = d.color ?? DEFAULT_COLOR[d.style];
+        const color = d.color ?? DECO_DEFAULT_COLOR[d.style];
         if (!useApi || d.style === 'box' || d.style === 'note-mark') {
           overlayItems.push({ style: d.style, color, range: r });
           continue;
@@ -176,10 +176,37 @@ export class Decorations {
     return Array.from(r.getClientRects()).map((q) => new DOMRect(q.left + o.left, q.top + o.top, q.width, q.height));
   }
 
-  rects(range: TextRange): DOMRect[] {
-    const f = this.e.frames.get(range.section);
+  /** 双页时同一章有主/副两个副本，各自露出一个窗口：矩形要从露出该行的那个副本取 */
+  private dualFrames(section: number): ChapterFrame[] {
+    const e = this.e;
+    const f = e.frames.get(section);
     if (!f?.loaded) return [];
-    const stage = this.e.stage!.getBoundingClientRect();
+    const sp = e.dualNow() ? e.spares.get(section) : undefined;
+    return sp?.loaded ? [f, sp] : [f];
+  }
+
+  private inHost(r: DOMRect, fr: ChapterFrame, eps = 1): boolean {
+    if (fr.host.style.visibility === 'hidden') return false;
+    const h = fr.host.getBoundingClientRect();
+    return r.top >= h.top - eps && r.bottom <= h.bottom + eps && r.left >= h.left - eps && r.right <= h.right + eps;
+  }
+
+  rects(range: TextRange): DOMRect[] {
+    const e = this.e;
+    const f = e.frames.get(range.section);
+    if (!f?.loaded) return [];
+    if (e.dualNow()) {
+      const out: DOMRect[] = [];
+      for (const fr of this.dualFrames(range.section)) {
+        const h = fr.host.getBoundingClientRect();
+        if (fr.host.style.visibility === 'hidden') continue;
+        for (const r of this.rectsIn(fr, range)) {
+          if (r.bottom > h.top && r.top < h.bottom && r.right > h.left && r.left < h.right) out.push(r);
+        }
+      }
+      return out;
+    }
+    const stage = e.stage!.getBoundingClientRect();
     return this.rectsIn(f, range).filter((r) => r.bottom > stage.top && r.top < stage.bottom && r.right > stage.left && r.left < stage.right);
   }
 
@@ -188,14 +215,19 @@ export class Decorations {
     const e = this.e;
     const f = e.frames.get(range.section);
     if (!f?.loaded) return false;
-    const stage = e.stage!.getBoundingClientRect();
+    // 当前屏 = 当前章当前窗口（分页模式只有当前章可见）
+    if (e.mode === 'paged' && range.section !== e.pos.section) return false;
     const rs = this.rectsIn(f, range);
     if (!rs.length) return false;
+    if (e.dualNow()) {
+      const sp = e.spares.get(range.section);
+      const rb = sp?.loaded ? this.rectsIn(sp, range) : [];
+      return rs.every((r, i) => this.inHost(r, f) || (!!sp && !!rb[i] && this.inHost(rb[i], sp)));
+    }
+    const stage = e.stage!.getBoundingClientRect();
     const eps = 1;
     const first = rs[0];
     const last = rs[rs.length - 1];
-    // 当前屏 = 当前章当前窗口（分页模式只有当前章可见）
-    if (e.mode === 'paged' && range.section !== e.pos.section) return false;
     return first.top >= stage.top - eps && last.bottom <= stage.bottom + eps && rs.every((r) => r.left >= stage.left - eps && r.right <= stage.right + eps);
   }
 }

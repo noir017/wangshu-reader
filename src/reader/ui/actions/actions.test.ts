@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { appSettings } from '@/core/app-settings';
 import { ReaderAction } from '@/reader/settings';
 import { actionForArea, actionLabel, actionOptions, decideTap, performAction, type ActionHost } from './actions';
 
@@ -87,6 +88,7 @@ describe('动作分发 performAction（CTRL-002，26 项）', () => {
   });
 
   it('26 项都有中文名称，与 values-zh 的 controls 一致', () => {
+    appSettings.set({ language: 'zh' }); // happy-dom 的 navigator.language 是 en-US
     const labels = actionOptions().map((o) => o.label);
     expect(labels).toHaveLength(26);
     expect(labels.slice(0, 5)).toEqual(['向上翻页', '向下翻页', '上一文件', '下一文件', '搜索']);

@@ -1,6 +1,6 @@
 // 我的文件（LIB-028/029）：浏览服务端书库目录。服务端未配置书库目录时整页置灰提示。
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Archive, BookOpen, ClipboardPaste, Copy, Download, File as FileIcon, FileText, Folder, FolderPlus, Grid3x3, Heart, Image as ImageIcon, List, MoreVertical, Move, Pencil, Star, Trash2, Upload } from 'lucide-react';
+import { Archive, BookOpen, Cloud, ClipboardPaste, Copy, Download, File as FileIcon, FileText, Folder, FolderPlus, Grid3x3, Heart, Image as ImageIcon, List, MoreVertical, Move, Pencil, Star, Trash2, Upload } from 'lucide-react';
 import type { LibraryEntry } from '@shared/api';
 import { IconButton, Button, confirmDialog, popupMenu, promptDialog, toast, chooseDialog, openOverlay } from '@/ui';
 import { navigate, type Route } from '@/core/router';
@@ -16,6 +16,7 @@ import { runWithProgress } from '../ImportDialogs';
 import { openBook } from '../open';
 import { openBookInfo } from '../BookInfo';
 import { formatDate, formatSize, triggerDownload } from '../format';
+import { openCloudImport } from './CloudImport';
 import { addFavFolder, openFavFolders, removeFavFolder } from './FavFolders';
 import { breadcrumbs, fileExt, isBrowsableArchive, isImageName, joinPath, sortEntries, splitPath, upFrom, type FileSort } from './files-model';
 import { checkLibrary, copyEntries, deleteEntries, downloadServerFile, fileUrl, listDir, mkdir, moveEntries, renameEntry, searchFiles, thumbUrl, uploadFiles, type LibraryAvailability } from './files-client';
@@ -272,6 +273,7 @@ export function FilesPage({ route }: { route: Route }) {
       { label: t('showHidden'), onSelect: () => filesSettings.set({ showHidden: !st.showHidden }) },
       { label: isFav ? t('filesRemoveFav') : t('filesAddFav'), icon: <Star size={16} />, onSelect: () => (isFav ? removeFavFolder(path) : addFavFolder(path)) },
       { label: t('filesFavorites'), onSelect: openFavFolders },
+      { label: t('cloudImport'), icon: <Cloud size={16} />, onSelect: openCloudImport },
       { label: t('selectAll'), onSelect: () => sel.setAll(shown.map((e) => e.path)) },
     ]);
 

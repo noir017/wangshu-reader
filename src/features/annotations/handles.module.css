@@ -1,0 +1,26 @@
+/* 手柄：32×40 的触控区，圆头在下，尖端对着选区边缘。起点手柄圆头偏左、终点偏右（与系统手柄一致）。 */
+.handle {
+  position: fixed;
+  z-index: 895;
+  width: 36px;
+  height: 44px;
+  margin-left: -18px;
+  display: flex;
+  justify-content: center;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grab;
+}
+.knob {
+  display: block;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  background: #4285f4;
+  border-radius: 0 50% 50% 50%;
+  transform: rotate(45deg);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.4);
+}
+.knob[data-which='start'] { border-radius: 50% 0 50% 50%; }
+.knob[data-which='end'] { border-radius: 0 50% 50% 50%; }

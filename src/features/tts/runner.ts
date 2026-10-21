@@ -313,10 +313,7 @@ export class TtsRunner {
     if (epoch !== this.epoch) return;
     const cfg = this.host.settings();
     const engine = this.host.engine();
-    engine.prefetch?.(
-      this.lines.slice(this.index + 1, this.index + 3).map((l) => l.speak),
-      cfg.speak,
-    );
+    // 先请求当前句，再预取后面的：服务端合成慢时，当前句不能排在预取后面
     engine.speak(line.speak, cfg.speak, {
       onEnd: () => {
         if (epoch !== this.epoch) return;
@@ -329,6 +326,10 @@ export class TtsRunner {
         this.finish('error', msg);
       },
     });
+    engine.prefetch?.(
+      this.lines.slice(this.index + 1, this.index + 3).map((l) => l.speak),
+      cfg.speak,
+    );
   }
 
   private async afterLine(epoch: number): Promise<void> {

@@ -1,3 +1,4 @@
+import type { AnnotFilter } from '../annotations/model';
 // 目录相关纯逻辑：标题清洗、扁平化、当前章判定、书内进度估算。
 import type { Book, TocEntry } from '@/core/book';
 
@@ -143,4 +144,18 @@ export function progressFn(book: Book): (section: number, offset: number) => num
     const cur = book.sections[sec]?.charCount ?? 0;
     return Math.max(0, Math.min(1, (prefix[sec] + Math.min(Math.max(0, offset), cur)) / total));
   };
+}
+
+/** toc.open 的 tab → 面板请求：笔记/高亮是书签页里的筛选（0 全部 1 书签 2 标注 3 高亮） */
+export function tocRequestOf(tab: 'toc' | 'bookmarks' | 'notes' | 'highlights' | undefined): { tab: 'toc' | 'bookmarks'; filter?: AnnotFilter } {
+  switch (tab) {
+    case 'bookmarks':
+      return { tab: 'bookmarks' };
+    case 'notes':
+      return { tab: 'bookmarks', filter: 2 };
+    case 'highlights':
+      return { tab: 'bookmarks', filter: 3 };
+    default:
+      return { tab: 'toc' };
+  }
 }

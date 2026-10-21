@@ -11,6 +11,7 @@ import { shelfSettings } from './settings';
 import { useLibrary } from './data';
 import { importDropped } from './ImportDialogs';
 import { runStartup } from './startup';
+import { autoImportNow } from './linked-dirs';
 import { openBook } from './open';
 import { DashPage } from './DashPage';
 import { RecentPage } from './RecentPage';
@@ -36,6 +37,15 @@ export function LibraryShell({ route }: { route: Route }) {
   const simpleRecent = shelfSettings.use((x) => x.simpleRecentList);
 
   useEffect(() => runStartup(route.name), []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 自动导入已链接目录里的新书（LIB-024）：进入书架、窗口重新获得焦点时扫描
+  useEffect(() => {
+    if (route.name !== 'shelf') return;
+    void autoImportNow().catch(() => undefined);
+    const onFocus = () => void autoImportNow().catch(() => undefined);
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [route.name]);
 
   // 整页拖放导入：拖文件/文件夹进窗口即可
   useEffect(() => {

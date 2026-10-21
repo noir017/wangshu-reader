@@ -23,6 +23,8 @@ export const annoSettings = defineSettings('features.annotation', {
   directHighlight: false,
   /** 选择时放大镜（引擎读取；这里只存开关） */
   showMagnifier: !tablet,
+  /** 选择手柄：auto = 只在触屏（粗指针）上画；桌面用浏览器原生选择。界面里没有入口，测试与特殊设备用 */
+  selectionHandles: 'auto' as 'auto' | 'on' | 'off',
   /** 工具条上方显示颜色快速选择模板 */
   showColorTemplate: true,
   bookmarkColor: '#ff0000',

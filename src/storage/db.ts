@@ -11,8 +11,8 @@ import type {
   ReadingStatRecord,
 } from '@/core/library';
 
-/** 阅读统计记录。pages = 翻过的页数（STAT-003 第 3/5/6 张卡片要用，core/library.ts 的类型尚无此字段，待总控补） */
-export type StatRecord = ReadingStatRecord & { pages?: number; dayPages?: Record<number, number> };
+/** 阅读统计记录（字段见 core/library.ts 的 ReadingStatRecord） */
+export type StatRecord = ReadingStatRecord;
 
 export const DB_NAME = 'moonreader';
 export const DB_VERSION = 1;

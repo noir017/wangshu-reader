@@ -2,7 +2,7 @@
 import { useEffect, type RefObject } from 'react';
 import type { ReaderLocation } from '@/core/reader';
 import type { ReaderSession } from '@/core/reader-session';
-import { ReaderAction, controlSettings, flipSettings, screenSettings, textSettings, themeSettings } from '@/reader/settings';
+import { ReaderAction, controlSettings, flipSettings, screenSettings, themeSettings } from '@/reader/settings';
 import { confirmDialog, toast } from '@/ui';
 import { performAction, type ActionHost } from '../actions/actions';
 import { bindController, createInputHandlers, handledKeys, type InputHandlers } from '../actions/input';
@@ -11,8 +11,7 @@ import { MotionDetector, tiltPageAction } from '../services/motion';
 import { listenMotion } from '../services/motion-source';
 import { PAGE_SOUND_USER, pageSound } from '../services/page-sound';
 import { loadUserPageSound } from '../settings/MiscDialogs';
-import { AwakeController, applyScreenState } from '../services/system';
-import { ensureFont } from '../services/fonts';
+import { AwakeController, applyScreenState, enterFullscreen, exitFullscreen, fullscreenSupported, isFullscreen } from '../services/system';
 import { setBrightness } from '../services/brightness-actions';
 import { autoThemeDecision, loadTheme } from '../themes/theme-manager';
 import { uiSettings } from '../ui-settings';
@@ -102,13 +101,30 @@ export function useLocationState(session: ReaderSession | null): void {
   }, [session]);
 }
 
-/** 常亮、屏幕方向、字体注入 */
+/** 常亮、屏幕方向、全屏（用户/服务端字体由引擎自己注入章节 iframe，这里不管） */
 export function useSystemEffects(session: ReaderSession | null): void {
   const keep = screenSettings.use((s) => s.keepScreenAwake);
   const extend = screenSettings.use((s) => s.screenAwakeExtend);
   const auto = useReaderUi((s) => s.autoRunning || s.speedRead);
   const state = screenSettings.use((s) => s.screenState);
-  const fontName = textSettings.use((s) => s.fontName);
+  const fullscreen = screenSettings.use((s) => s.fullscreen);
+
+  // 全屏（VIEW-012）：浏览器要求用户手势才能进全屏，所以只在触屏设备（对应原 app 的手机/平板沉浸阅读）上、
+  // 用阅读页里的第一次触摸去触发；桌面浏览器不自动进入（用选项菜单里的「全屏模式」）。离开阅读页时退出。
+  useEffect(() => {
+    if (!session || !fullscreen || !fullscreenSupported() || isFullscreen()) return;
+    if (typeof matchMedia === 'undefined' || !matchMedia('(pointer: coarse)').matches) return;
+    let entered = false;
+    const onUp = () => {
+      window.removeEventListener('pointerup', onUp, true);
+      void enterFullscreen().then((ok) => (entered = ok));
+    };
+    window.addEventListener('pointerup', onUp, true);
+    return () => {
+      window.removeEventListener('pointerup', onUp, true);
+      if (entered && isFullscreen()) void exitFullscreen();
+    };
+  }, [session, fullscreen]);
 
   // 常亮：每次操作刷新计时；自动滚屏/速读强制常亮
   useEffect(() => {
@@ -138,17 +154,6 @@ export function useSystemEffects(session: ReaderSession | null): void {
   useEffect(() => {
     if (session && state !== 0) void applyScreenState(state);
   }, [session, state]);
-
-  // 字体：用户/服务端字体需要先注入 FontFace，加载完成后让引擎重排
-  useEffect(() => {
-    if (!session) return;
-    if (!/^(font|server):/.test(fontName)) return;
-    let alive = true;
-    void ensureFont(fontName).then(() => alive && void session.controller.relayout());
-    return () => {
-      alive = false;
-    };
-  }, [session, fontName]);
 }
 
 const awakeRef: { current: AwakeController | null } = { current: null };

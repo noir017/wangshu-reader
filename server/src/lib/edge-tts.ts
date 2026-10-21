@@ -8,8 +8,9 @@ import type { TtsVoice } from '@shared/api';
 const TRUSTED_CLIENT_TOKEN = '6A5AA1D4EAFF4E9FB37E23D68491D6F4';
 const CHROMIUM_FULL_VERSION = '143.0.3650.96';
 const CHROMIUM_MAJOR = CHROMIUM_FULL_VERSION.split('.')[0];
-const WSS_URL = process.env.MR_EDGE_TTS_WSS ?? 'wss://api.msedgeservices.com/tts/cognitiveservices/websocket/v1';
-const VOICES_URL = process.env.MR_EDGE_TTS_VOICES ?? `https://speech.platform.bing.com/consumer/speech/synthesize/readaloud/voices/list?trustedclienttoken=${TRUSTED_CLIENT_TOKEN}`;
+// 端点每次用时才读环境变量（测试里指到本地替身服务；线上变动时可以不改代码覆盖）
+const wssBase = (): string => process.env.MR_EDGE_TTS_WSS ?? 'wss://api.msedgeservices.com/tts/cognitiveservices/websocket/v1';
+const voicesBase = (): string => process.env.MR_EDGE_TTS_VOICES ?? `https://speech.platform.bing.com/consumer/speech/synthesize/readaloud/voices/list?trustedclienttoken=${TRUSTED_CLIENT_TOKEN}`;
 const UA = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${CHROMIUM_MAJOR}.0.0.0 Safari/537.36 Edg/${CHROMIUM_MAJOR}.0.0.0`;
 const OUTPUT_FORMAT = 'audio-24khz-48kbitrate-mono-mp3';
 
@@ -23,7 +24,7 @@ export function secMsGec(nowMs = Date.now() + clockSkewMs): string {
 }
 
 function wsUrl(): string {
-  return `${WSS_URL}?Ocp-Apim-Subscription-Key=${TRUSTED_CLIENT_TOKEN}&Sec-MS-GEC=${secMsGec()}&Sec-MS-GEC-Version=1-${CHROMIUM_FULL_VERSION}&ConnectionId=${randomUUID().replace(/-/g, '')}`;
+  return `${wssBase()}?Ocp-Apim-Subscription-Key=${TRUSTED_CLIENT_TOKEN}&Sec-MS-GEC=${secMsGec()}&Sec-MS-GEC-Version=1-${CHROMIUM_FULL_VERSION}&ConnectionId=${randomUUID().replace(/-/g, '')}`;
 }
 
 // ───────────────────────── 声音列表 ─────────────────────────
@@ -68,7 +69,7 @@ let voicesCache: { at: number; voices: TtsVoice[] } | undefined;
 export async function listEdgeVoices(): Promise<{ voices: TtsVoice[]; live: boolean }> {
   if (voicesCache && Date.now() - voicesCache.at < 24 * 3600_000) return { voices: voicesCache.voices, live: true };
   try {
-    const res = await fetch(`${VOICES_URL}&Sec-MS-GEC=${secMsGec()}&Sec-MS-GEC-Version=1-${CHROMIUM_FULL_VERSION}`, {
+    const res = await fetch(`${voicesBase()}${voicesBase().includes('?') ? '&' : '?'}Sec-MS-GEC=${secMsGec()}&Sec-MS-GEC-Version=1-${CHROMIUM_FULL_VERSION}`, {
       headers: { 'User-Agent': UA, Accept: '*/*', 'Accept-Language': 'en-US,en;q=0.9' },
       signal: AbortSignal.timeout(10_000),
     });

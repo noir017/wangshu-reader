@@ -42,7 +42,11 @@ export function stopAutoScroll(opts: { silent?: boolean } = {}): void {
   ui.setAuto({ running: false, paused: false });
   ui.setSpeedRead(false);
   const c = getSession()?.controller;
-  if (c?.isAutoScrolling()) c.stopAutoScroll();
+  try {
+    if (c?.isAutoScrolling()) c.stopAutoScroll();
+  } catch {
+    /* 引擎还没 open 完（React 严格模式下 effect 会立刻清理一次）：没有滚屏可停 */
+  }
   if (was && !opts.silent) toast(t('scroll_cancel'));
 }
 
@@ -70,11 +74,23 @@ export function changeSpeed(delta: number): void {
   toast(t('scroll_speed', { n: speedPct(next) }), 800);
 }
 
-/** 引擎 autoScroll 事件 → 界面状态（暂停期间引擎已停止，不能把「已暂停」清掉） */
-export function onEngineAutoScroll(running: boolean): void {
+let lastEngineSpeed: number | null = null;
+
+/**
+ * 引擎 autoScroll 事件 → 界面状态。滚屏运行时，点击暂停/继续、上下拖调速、横拖停止都由引擎自己处理（它不再上报 tap），
+ * 暂停和停止对外是同一个 {running:false}，没法区分：界面主动停止时已先清掉状态，所以这里凡是「界面以为在滚、引擎说没在滚」
+ * 都当作暂停（再点一下由 tap 走 pauseOrResume 继续）。已知局限见汇报：引擎应在事件里带上 paused。
+ */
+export function onEngineAutoScroll(running: boolean, speed?: number): void {
   const ui = useReaderUi.getState();
-  if (running) ui.setAuto({ running: true, paused: false });
-  else if (!ui.autoPaused) ui.setAuto({ running: false });
+  if (running) {
+    ui.setAuto({ running: true, paused: false });
+    if (speed !== undefined && lastEngineSpeed !== null && speed !== lastEngineSpeed) toast(t('scroll_speed', { n: speedPct(speed) }), 800);
+  } else if (ui.autoRunning) {
+    ui.setAuto({ running: false, paused: true });
+    toast(t('pause'));
+  }
+  if (speed !== undefined) lastEngineSpeed = speed;
 }
 
 /** 开始自动滚屏（点按钮/动作 18/导航菜单）：首次询问模式与速度 */

@@ -12,6 +12,7 @@ import { ti } from './messages';
 import { gallerySettings } from './settings';
 import { clampView, fitSize, nextZoomStep, swipeAction, tapZone, zoomAround, ZOOM_MAX, ZOOM_MIN, type View } from './zoom-math';
 import css from './viewer.module.css';
+import { peekLocation } from '../common/safe';
 
 export interface ViewerImage {
   src: string;
@@ -49,7 +50,7 @@ function OptionsDialog({ close }: { close: () => void }) {
 }
 
 export function ImageViewer({ session, src, onClose }: { session: ReaderSession; src: string; onClose: () => void }) {
-  const loc = session.controller.getLocation();
+  const loc = peekLocation(session.controller);
   const [list, setList] = useState<ViewerImage[]>(() => {
     const inSec = loc ? imagesInSection(loc.locator.section) : [];
     return inSec.some((i) => i.src === src) ? inSec : [{ src }];
@@ -62,6 +63,9 @@ export function ImageViewer({ session, src, onClose }: { session: ReaderSession;
   const [broken, setBroken] = useState(false);
   const s = gallerySettings.use((x) => x);
   const stage = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  // 点正文图片打开时焦点还在章节 iframe 里：把焦点拿过来，方向键/Esc 才到得了这里
+  useEffect(() => rootRef.current?.focus({ preventScroll: true }), []);
   const viewRef = useRef(view);
   viewRef.current = view;
   const cur = list[index] ?? { src };
@@ -250,7 +254,7 @@ export function ImageViewer({ session, src, onClose }: { session: ReaderSession;
   const fg = s.whiteBackground ? '#222' : '#eee';
 
   return createPortal(
-    <div className={css.root} style={{ background: bg, color: fg }} data-testid="image-viewer" role="dialog" aria-modal="true">
+    <div ref={rootRef} tabIndex={-1} className={css.root} style={{ background: bg, color: fg, outline: 'none' }} data-testid="image-viewer" role="dialog" aria-modal="true">
       <div
         ref={stage}
         className={css.stage}

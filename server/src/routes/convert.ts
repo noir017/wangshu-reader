@@ -98,11 +98,11 @@ export const route: RouteModule = {
         if (!entry || entry.symlink) throw httpError(404, `压缩包里没有这个条目：${entryName}`);
         if (entry.dir) throw httpError(400, '该条目是目录');
         if (entry.encrypted) throw httpError(422, '该条目已加密');
-        const proc = extractEntryStream(file, entry, listing.codepage);
+        const stream = await extractEntryStream(file, entry, listing.codepage);
         const name = path.posix.basename(entry.path);
         handedOver = true;
-        proc.stream.on('close', () => void rm(tmp.dir, { recursive: true, force: true }));
-        return new Response(Readable.toWeb(proc.stream) as ReadableStream, {
+        stream.on('close', () => void rm(tmp.dir, { recursive: true, force: true }));
+        return new Response(Readable.toWeb(stream) as ReadableStream, {
           status: 200,
           headers: {
             'Content-Type': mimeOf(name),

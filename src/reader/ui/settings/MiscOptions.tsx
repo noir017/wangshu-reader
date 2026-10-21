@@ -1,6 +1,8 @@
 // 其它选项（PrefMisc，VIEW-009）：全屏/常亮/边缘手势/状态栏/智能排版/自动滚屏/EPUB/护眼/特殊选项。
 import { controlSettings, cssSettings, flipSettings, screenSettings, statusSettings, textSettings, autoScrollSettings, AutoScrollMode, themeSettings } from '@/reader/settings';
+import { openDictSettings, openNamesDialog, openTtsMoreDialog } from '@/features';
 import { Row, toast, openOverlay } from '@/ui';
+import { useReaderUi } from '../store';
 import { Drawer } from '../components/Drawer';
 import { Section, SelectRow, SliderRow, SwitchRow } from './rows';
 import { enterFullscreen, exitFullscreen, fullscreenSupported } from '../services/system';
@@ -30,6 +32,12 @@ import { bluelightToggle } from '../services/brightness-actions';
 
 export function openStatusSettings(): void {
   openOverlay((close) => <StatusSettingsDialog close={close} />);
+}
+
+/** features 的设置对话框都要带当前会话 */
+export function withSession(open: (s: NonNullable<ReturnType<typeof useReaderUi.getState>['session']>) => void): void {
+  const s = useReaderUi.getState().session;
+  if (s) open(s);
 }
 
 export function openToolbarCustomizer(): void {
@@ -94,6 +102,9 @@ export function MiscOptions({ close, onSwitch }: { close: () => void; onSwitch: 
       <SwitchRow slice={screenSettings} k="bluelightEnable" title={t('bluelight_filter')} onSet={bluelightToggle} />
       {blue && <SliderRow slice={screenSettings} k="bluelightOpacity" title={t('bluelight_filter_opacity')} min={1} max={95} />}
 
+      <Section>{t('speak_group')}</Section>
+      <Row title={t('tts_options')} onClick={() => withSession(openTtsMoreDialog)} />
+
       <Section>{t('specialphone')}</Section>
       <Row
         title={t('tilt_turn_page')}
@@ -120,9 +131,11 @@ export function MiscOptions({ close, onSwitch }: { close: () => void; onSwitch: 
       <SwitchRow slice={controlSettings} k="disableEdgeTouch" title={t('disable_edge_touch')} onGear={openEdgeTouchDialog} />
 
       <Section>{' '}</Section>
+      <Row title={t('names_replacement')} onClick={() => withSession(openNamesDialog)} />
       <Row title={t('link_colors')} onClick={openLinkColorDialog} />
       <Row title={t('popup_note_color')} onClick={openNoteColorDialog} />
       <Row title={t('image_display_options')} onClick={openImageOptionsDialog} />
+      <Row title={t('customize_dictionary')} onClick={() => withSession(openDictSettings)} />
       <Row title={t('customize_bottom_bar1')} onClick={openToolbarCustomizer} />
     </Drawer>
   );

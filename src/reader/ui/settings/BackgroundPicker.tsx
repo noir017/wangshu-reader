@@ -3,7 +3,7 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { Trash2, Upload } from 'lucide-react';
 import { textSettings } from '@/reader/settings';
 import { Button, GroupTitle, Sheet, confirmDialog, openOverlay, toast } from '@/ui';
-import { addUserImage, listTextures, listUserImages, removeUserImage, resolveBackground, textureStyleSync, type UserImage } from '../themes/background';
+import { addUserImage, listTextures, listUserImages, removeUserImage, resolveBackground, textureStyleSync, userImageId, type UserImage } from '../themes/background';
 import { t } from '../messages';
 import s from '../reader-ui.module.css';
 
@@ -34,7 +34,7 @@ function pick(id: string) {
 
 function UserTile({ img, active, onDelete }: { img: UserImage; active: boolean; onDelete: () => void }) {
   const [style, setStyle] = useState<CSSProperties>({});
-  const id = `img:${img.key}`;
+  const id = userImageId(img.key);
   useEffect(() => {
     void resolveBackground({ useBackgroundImage: true, backgroundImage: id, backgroundColor: '#888' }).then(setStyle);
   }, [id]);
@@ -90,11 +90,11 @@ function BackgroundPicker({ close }: { close: () => void }) {
               <UserTile
                 key={u.key}
                 img={u}
-                active={cur === `img:${u.key}`}
+                active={cur === userImageId(u.key)}
                 onDelete={async () => {
                   if (!(await confirmDialog(t('bg_delete_confirm')))) return;
-                  await removeUserImage(`img:${u.key}`);
-                  if (cur === `img:${u.key}`) textSettings.set({ useBackgroundImage: false, backgroundImage: '' });
+                  await removeUserImage(userImageId(u.key));
+                  if (cur === userImageId(u.key)) textSettings.set({ useBackgroundImage: false, backgroundImage: '' });
                   reload();
                 }}
               />

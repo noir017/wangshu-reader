@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { bookSpeed, computeStatCards, dateRange, dayToDate } from './stats';
-import { dayNumber } from '@/storage/db';
+import { dayNumber, type StatRecord } from '@/storage/db';
 
 describe('统计卡片', () => {
-  const stats = [
+  const stats: StatRecord[] = [
     { bookId: 'a', usedMs: 3_600_000, words: 6000, pages: 60, days: { 100: { ms: 1_800_000, words: 3000 }, 101: { ms: 1_800_000, words: 3000 } } },
     { bookId: 'b', usedMs: 1_800_000, words: 3000, pages: 30, days: { 101: { ms: 1_800_000, words: 3000 } } },
   ];
