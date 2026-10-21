@@ -109,24 +109,42 @@ export interface DictResponse {
 }
 /** GET /api/dict/sources → { sources: { id, name, langs }[] } */
 
-// ───────────────────────── 服务端书库 / 网页传书 ─────────────────────────
-/** GET /api/library/list?path=<相对书库根的目录，默认根> */
+// ───────────────────────── 服务端书库（文件页 LIB-028）/ 网页传书 ─────────────────────────
+// 书库根目录由 MR_LIBRARY_DIR 指定（可用 ':' 分隔多个根，各根以目录名作为第一段路径）。
+// 所有 path 参数都是相对书库根、以 / 分隔的路径；服务端必须拒绝 .. 越界与符号链接逃逸。
+// 压缩包内路径用 '?' 分隔：'comics/a.cbr?vol1/001.jpg'（与原 app 的 isZipPath 约定一致）。
+
+/** GET /api/library/list?path=<目录或压缩包>&hidden=0|1 */
 export interface LibraryEntry {
   name: string;
-  /** 相对书库根的路径，用 / 分隔 */
+  /** 相对书库根的路径，用 / 分隔（压缩包内条目带 '?'） */
   path: string;
   dir: boolean;
   size: number;
   mtime: number;
+  /** 是压缩包（zip/rar/7z/cbz/cbr/cb7），可以进去浏览 */
+  archive?: boolean;
 }
 export interface LibraryListResponse {
   path: string;
   entries: LibraryEntry[];
 }
-/** GET /api/library/file?path=  → 文件流（支持 Range） */
+/** GET /api/library/file?path=  → 文件流（支持 Range；压缩包内条目也可以） */
+/** GET /api/library/thumb?path=&size=  → 书籍封面缩略图（EPUB/CBZ/FB2 等能取到封面的格式；取不到 404） */
+/** GET /api/library/search?path=<起始目录>&q=<文件名关键字>  → LibraryListResponse（递归，最多 2000 条） */
 /** POST /api/library/upload?path=<目标目录>  multipart/form-data，字段 file（可多个） → { saved: LibraryEntry[] } */
-/** DELETE /api/library/file?path= → { ok: true } */
-/** GET /transfer  → 给电脑浏览器用的传书网页（原 app 的 WiFi 传书） */
+/** POST /api/library/mkdir   { path }                         → { entry: LibraryEntry } */
+/** POST /api/library/rename  { path, newName }                → { entry: LibraryEntry } */
+/** POST /api/library/copy    { paths: string[], to: string }  → { entries: LibraryEntry[] } */
+/** POST /api/library/move    { paths: string[], to: string }  → { entries: LibraryEntry[] } */
+/** POST /api/library/delete  { paths: string[] }              → { ok: true } */
+export interface LibraryOpRequest {
+  path?: string;
+  paths?: string[];
+  to?: string;
+  newName?: string;
+}
+/** GET /transfer  → 给电脑浏览器用的传书网页（原 app 的 WiFi 传书），上传到书库根下的 Upload/ 目录 */
 
 // ───────────────────────── 服务端字体 ─────────────────────────
 /** GET /api/fonts → { fonts: { family, file, style?, weight? }[] } ；GET /api/fonts/file?file= → 字体文件 */
