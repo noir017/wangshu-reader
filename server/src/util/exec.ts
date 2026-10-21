@@ -8,11 +8,11 @@ const cache = new Map<string, string | null>();
 
 /** 在 PATH 里找可执行文件（同步、带缓存；环境变量 MR_BIN_<NAME> 可直接指定路径） */
 export function findCommand(name: string, env: NodeJS.ProcessEnv = process.env): string | undefined {
-  const key = `${env.PATH ?? ''}\0${name}`;
+  const override = env[`MR_BIN_${name.toUpperCase().replace(/[^A-Z0-9]/g, '_')}`];
+  const key = `${env.PATH ?? ''}\0${override ?? ''}\0${name}`;
   const hit = cache.get(key);
   if (hit !== undefined) return hit ?? undefined;
   let found: string | null = null;
-  const override = env[`MR_BIN_${name.toUpperCase().replace(/[^A-Z0-9]/g, '_')}`];
   const dirs = override ? [] : (env.PATH ?? '').split(path.delimiter).filter(Boolean);
   const candidates = override ? [override] : dirs.map((d) => path.join(d, name));
   for (const c of candidates) {

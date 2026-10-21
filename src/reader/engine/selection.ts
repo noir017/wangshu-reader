@@ -45,7 +45,13 @@ export class SelectionManager {
       if (had) e.emit('selection', null);
       return;
     }
-    const frame = e.frames.get(range.section);
+    let frame = e.frames.get(range.section);
+    // 双页：区间起点在右页窗口里时，选区要落在副本上才能看见
+    const sp = e.dualNow() ? e.spares.get(range.section) : undefined;
+    if (frame?.loaded && sp?.loaded && e.pos.section === range.section) {
+      const ry = e.rightTop(frame, e.pos.y);
+      if (ry !== null && range.start >= sp.offsetAtTop(ry)) frame = sp;
+    }
     if (!frame?.loaded) {
       void e.ensureFrame(range.section).then(() => this.set(range)).catch(() => undefined);
       return;

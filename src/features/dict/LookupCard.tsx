@@ -6,6 +6,7 @@ import { appSettings } from '@/core/app-settings';
 import { apiJson, hasServer } from '@/core/server';
 import { IconButton, Select, toast } from '@/ui';
 import { copyText } from '../common/clipboard';
+import { useFocusAndEscape } from '../common/hooks';
 import { placeNear, type Placement } from '../common/position';
 import { sanitizeHtml } from '../common/sanitize';
 import { hasServerFeature, serverUrl } from '../common/server-features';
@@ -36,21 +37,25 @@ export function LookupCard({ req }: { req: LookupRequest }) {
   // 请求变化（新选区）时复位模式
   useEffect(() => setMode(req.mode), [req]);
 
+  // 卡片内容（加载中 → 释义/译文）会改变高度：用 ResizeObserver 重新定位。位置没变就不 setState，免得死循环
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const anchor = req.rect ?? new DOMRect(window.innerWidth / 2, window.innerHeight / 3, 0, 0);
-    const size = { width: el.offsetWidth, height: el.offsetHeight };
-    // DICT-007：选区在屏幕上半部 → 卡片放下面，反之放上面
-    const prefer = anchor.top + anchor.height / 2 < window.innerHeight / 2 ? 'below' : 'above';
-    setPlace(placeNear({ left: anchor.left, right: anchor.right, top: anchor.top, bottom: anchor.bottom }, size, { width: window.innerWidth, height: window.innerHeight }, { prefer }));
-  });
+    const reposition = () => {
+      const anchor = req.rect ?? new DOMRect(window.innerWidth / 2, window.innerHeight / 3, 0, 0);
+      const size = { width: el.offsetWidth, height: el.offsetHeight };
+      // DICT-007：选区在屏幕上半部 → 卡片放下面，反之放上面
+      const prefer = anchor.top + anchor.height / 2 < window.innerHeight / 2 ? 'below' : 'above';
+      const next = placeNear({ left: anchor.left, right: anchor.right, top: anchor.top, bottom: anchor.bottom }, size, { width: window.innerWidth, height: window.innerHeight }, { prefer });
+      setPlace((cur) => (cur && cur.left === next.left && cur.top === next.top && cur.side === next.side ? cur : next));
+    };
+    reposition();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(reposition) : undefined;
+    ro?.observe(el);
+    return () => ro?.disconnect();
+  }, [req.rect, mode]);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && closeLookupCard();
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  useFocusAndEscape(ref, closeLookupCard, !!place);
 
   return (
     <>
@@ -61,7 +66,8 @@ export function LookupCard({ req }: { req: LookupRequest }) {
         role="dialog"
         aria-label={mode === 'dict' ? td('dictionary') : td('translate')}
         data-testid="lookup-card"
-        style={{ width: 'min(92vw, 420px)', left: place?.left ?? 0, top: place?.top ?? 0, visibility: place ? 'visible' : 'hidden', zIndex: 901 }}
+        tabIndex={-1}
+        style={{ outline: 'none', width: 'min(92vw, 420px)', left: place?.left ?? 0, top: place?.top ?? 0, visibility: place ? 'visible' : 'hidden', zIndex: 901 }}
       >
         <div className={css.bubbleHead}>
           <span className={css.grow} title={req.text}>

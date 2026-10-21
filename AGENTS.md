@@ -39,6 +39,7 @@
 - 调服务端一律走 `src/core/server.ts`（`apiFetch`/`apiJson`）；服务端不可用时功能要**优雅降级**（置灰 + 提示），不能报错崩溃。
 - **必须能在单文件构建里工作**（`dist-single/index.html` 用 file:// 打开）：不要运行时去拉本地静态资源；worker 用 `?worker&inline`，小资源用 `?inline`/`?raw` 打进包里。
 - 注释用中文，只写「为什么」和不明显的约束；不写废话注释。
+- ⚠️ 用 Write/Edit 写含 `\u2028`/`\u2029` 等转义的源码时，转义可能被还原成真字符，vite 会解析失败、整站打不开。写这类代码用 bash heredoc 或 python，写完 `grep -rlP '[\x{2028}\x{2029}]' src server` 确认为空。
 - 单元测试放在被测文件旁边（`xxx.test.ts`），vitest + happy-dom，IndexedDB 由 fake-indexeddb 提供。
   ⚠️ happy-dom 对 `DOMParser` 生成的文档做 Range 边界比较有 bug（Range 被折叠、`intersectsNode` 抛 WrongDocumentError）：涉及 Range 的测试用全局 `document` 建节点；需要真实浏览器行为的放到 e2e（chromium）。
 - 测试样书放容器 `/work/moonreader-web/samples/`（不进 git、不会被同步删掉）；需要小样本就在测试里程序生成。

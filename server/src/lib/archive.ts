@@ -1,9 +1,11 @@
 // 7-Zip 封装：列出条目、流式取单个条目、整包解到目录。zip/rar/7z/cbz/cbr/cb7/chm 等都走它。
-import { lstat, open, readdir } from 'node:fs/promises';
-import { statSync } from 'node:fs';
+import { lstat, mkdtemp, open, readdir, rm } from 'node:fs/promises';
+import { createReadStream, statSync } from 'node:fs';
 import path from 'node:path';
-import { CommandError, find7z, run, runStream, type StreamingProcess } from '../util/exec';
+import type { Readable } from 'node:stream';
+import { CommandError, find7z, run, runStream } from '../util/exec';
 import { httpError } from '../util/http';
+import { rarSupported, rarTmp, unrarExtract } from './rar';
 
 export interface ArchiveEntry {
   /** 规范化后的条目路径：用 / 分隔、无前导 ./ 或 / */
@@ -16,6 +18,8 @@ export interface ArchiveEntry {
   mtime: number;
   symlink: boolean;
   encrypted: boolean;
+  /** RAR 条目：内容用 node-unrar-js 读（7z 的 Debian 包解不了压缩过的 RAR） */
+  unrar?: boolean;
 }
 
 export interface ArchiveListing {
@@ -106,9 +110,11 @@ export async function listArchive(file: string, opts: { cache?: boolean } = {}):
   try {
     const first = await list7z(file);
     res = { entries: first.entries };
+    const magic = await headMagic(file);
+    if (magic === 'Rar!' && rarSupported()) for (const e of res.entries) e.unrar = true;
     // 有非 ASCII 名字且没有 UTF-8 标志 → 多半是 GBK 等老编码的 zip
     const suspicious = first.entries.some((e, i) => hasMojibake(e.path) && !first.utf8Flag[i]);
-    if (suspicious && (await headMagic(file)) === 'PK') {
+    if (suspicious && magic.startsWith('PK')) {
       for (const cp of FALLBACK_CODEPAGES) {
         try {
           const alt = await list7z(file, cp);
@@ -138,9 +144,9 @@ export async function listArchive(file: string, opts: { cache?: boolean } = {}):
 async function headMagic(file: string): Promise<string> {
   const fh = await open(file, 'r');
   try {
-    const b = Buffer.alloc(2);
-    await fh.read(b, 0, 2, 0);
-    return b.toString('latin1');
+    const b = Buffer.alloc(4);
+    const { bytesRead } = await fh.read(b, 0, 4, 0);
+    return b.toString('latin1', 0, bytesRead);
   } finally {
     await fh.close();
   }
@@ -152,17 +158,51 @@ export function findEntry(listing: ArchiveListing, p: string): ArchiveEntry | un
   return listing.entries.find((e) => e.path === want);
 }
 
-/** 流式取单个条目的内容（用 -spd 关掉通配符，条目名里有 * [ ] 也能精确匹配） */
-export function extractEntryStream(file: string, entry: ArchiveEntry, codepage?: number): StreamingProcess {
+/** RAR 条目：解到临时目录再以流返回，流关闭后清理 */
+async function rarEntryFile(file: string, entry: ArchiveEntry): Promise<{ abs: string; cleanup: () => Promise<void> }> {
+  const dir = await mkdtemp(path.join(rarTmp.dir, 'rar-'));
+  const cleanup = () => rm(dir, { recursive: true, force: true });
+  try {
+    await unrarExtract(file, dir, (n) => normalizeEntryPath(n) === entry.path);
+    const [got] = await walkRegularFiles(dir, 10);
+    if (!got) throw httpError(404, '压缩包里没有这个条目');
+    return { abs: got.abs, cleanup };
+  } catch (e) {
+    await cleanup();
+    throw e;
+  }
+}
+
+/**
+ * 取单个条目的内容（流）。7z 用 -spd 关掉通配符，条目名里有 * [ ] 也能精确匹配；
+ * 7z 方式下失败（如条目损坏）表现为流出错，RAR 方式在返回前就解完了，错误可以直接抛。
+ */
+export async function extractEntryStream(file: string, entry: ArchiveEntry, codepage?: number): Promise<Readable> {
+  if (entry.unrar) {
+    const { abs, cleanup } = await rarEntryFile(file, entry);
+    const rs = createReadStream(abs);
+    rs.on('close', () => void cleanup());
+    return rs;
+  }
   const args = ['x', '-so', '-spd', '-y', '-bd', '-sccUTF-8'];
   if (codepage) args.push(`-mcp=${codepage}`);
   args.push('--', file, entry.raw);
-  return runStream(require7z(), args, { timeoutMs: 600_000 });
+  return runStream(require7z(), args, { timeoutMs: 600_000 }).stream;
 }
 
 /** 取单个条目到内存（封面、container.xml 这类小文件；超过 maxBytes 报错） */
 export async function extractEntryBuffer(file: string, entry: ArchiveEntry, codepage?: number, maxBytes = 64 * 1024 * 1024): Promise<Buffer> {
   if (entry.size > maxBytes) throw httpError(413, '条目过大');
+  if (entry.unrar) {
+    const { abs, cleanup } = await rarEntryFile(file, entry);
+    try {
+      const chunks: Buffer[] = [];
+      for await (const ch of createReadStream(abs)) chunks.push(ch as Buffer);
+      return Buffer.concat(chunks);
+    } finally {
+      await cleanup();
+    }
+  }
   const args = ['x', '-so', '-spd', '-y', '-bd', '-sccUTF-8'];
   if (codepage) args.push(`-mcp=${codepage}`);
   args.push('--', file, entry.raw);
@@ -172,6 +212,7 @@ export async function extractEntryBuffer(file: string, entry: ArchiveEntry, code
 
 /** 整包解到 outDir */
 export async function extractAll(file: string, outDir: string, codepage?: number): Promise<void> {
+  if (rarSupported() && (await headMagic(file)) === 'Rar!') return unrarExtract(file, outDir);
   const args = ['x', '-y', '-bd', '-sccUTF-8', `-o${outDir}`];
   if (codepage) args.push(`-mcp=${codepage}`);
   args.push('--', file);

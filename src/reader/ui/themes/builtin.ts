@@ -1,6 +1,6 @@
 // 14 套内置主题（THEME-001，spec 02 §5.2）。只写出原 XML 里真正写了的键；缺省键载入时取当前全局值。
 // 背景图用程序纹理 id（tex:<apk 背景图文件名去扩展名>），由引擎的 textures.ts 提供样式；
-// 引擎没提供的 id 用 background-fallback.ts 里的均色回退，所以这里的 id 与 apk 文件名一一对应。
+// id 与 apk 背景图文件名一一对应（引擎的 textures.ts 提供程序化版本）。
 import type { THEME_KEYS } from '@/reader/settings';
 
 export type ThemeStyleKey = Exclude<(typeof THEME_KEYS)[number], 'fontColor' | 'backgroundColor' | 'useBackgroundImage' | 'backgroundImage'>;

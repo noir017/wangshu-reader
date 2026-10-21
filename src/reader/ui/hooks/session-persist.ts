@@ -2,7 +2,7 @@
 import { useEffect } from 'react';
 import type { ReaderLocation } from '@/core/reader';
 import type { ReaderSession } from '@/core/reader-session';
-import { addReadingTime, savePosition, touchHistory } from '@/storage/db';
+import { addReadingTime, dbEvents, savePosition, touchHistory } from '@/storage/db';
 import { screenSettings } from '@/reader/settings';
 import { ReadingTracker, countWords } from '../services/reading-time';
 import { shouldRemind1, shouldRemind2, localDayNo } from '../services/system';
@@ -13,13 +13,19 @@ import { t } from '../messages';
 
 const SAVE_DEBOUNCE_MS = 800;
 
-/** 进度保存：relocate 后去抖落盘；切后台/退出时立即落盘 */
+/**
+ * 进度保存：relocate 后去抖落盘；切后台/退出时立即落盘。
+ * 云同步（别的模块）可能在阅读期间改写这本书的进度、随后让阅读页重开：那次写入不是我们写的，
+ * 之后离开页面时不能再用当前位置把它盖回去——直到用户再次翻页为止。
+ */
 export function usePositionSaving(session: ReaderSession | null): void {
   useEffect(() => {
     if (!session) return;
     const { controller, bookId } = session;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let pending: ReaderLocation | null = null;
+    let own = 0; // 正在进行的自己的写入数（它们触发的 change 事件不算外部改动）
+    let external = false;
     void touchHistory(bookId);
 
     const write = () => {
@@ -27,16 +33,28 @@ export function usePositionSaving(session: ReaderSession | null): void {
       timer = undefined;
       const loc = pending;
       pending = null;
-      if (!loc) return;
+      if (!loc || external) return;
       uiSettings.set({ lastReadTime: Date.now() });
-      void savePosition({ bookId, locator: loc.locator, progress: loc.atEnd ? 1 : loc.progress });
+      own++;
+      void savePosition({ bookId, locator: loc.locator, progress: loc.atEnd ? 1 : loc.progress })
+        .catch((e) => console.warn('[reader] savePosition', e))
+        .finally(() => own--);
     };
     const off = controller.on('relocate', (loc) => {
+      external = false; // 用户又翻页了：以当前位置为准
       pending = loc;
       clearTimeout(timer);
       timer = setTimeout(write, SAVE_DEBOUNCE_MS);
     });
+    const offDb = dbEvents.on('change', (e) => {
+      if (e.store === 'positions' && e.bookId === bookId && own === 0) {
+        external = true;
+        pending = null;
+        clearTimeout(timer);
+      }
+    });
     const onHide = () => {
+      if (external) return;
       // 以引擎当前位置为准，防止 pending 为空时丢失最后一次翻页
       const cur = controller.getLocation();
       if (cur) pending = cur;
@@ -47,6 +65,7 @@ export function usePositionSaving(session: ReaderSession | null): void {
     window.addEventListener('pagehide', onHide);
     return () => {
       off();
+      offDb();
       document.removeEventListener('visibilitychange', onVis);
       window.removeEventListener('pagehide', onHide);
       onHide();

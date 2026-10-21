@@ -19,6 +19,8 @@ export interface ReaderCommands {
   /** 朗读：开始/暂停切换（动作 19） */
   'tts.toggle': { from?: Locator };
   'tts.stop': Record<string, never>;
+  /** 朗读菜单（工具栏朗读按钮长按）；x,y 为菜单锚点的视口坐标 */
+  'tts.menu': { x?: number; y?: number };
   /** 进入文字选择（动作 17：在 x,y 处选词；不给坐标则选当前页首段） */
   'selection.start': { x?: number; y?: number };
   /** 查词 / 翻译 */
@@ -28,6 +30,8 @@ export interface ReaderCommands {
   'image.open': { src: string };
   /** 显示脚注弹窗 */
   'footnote.open': { html: string; rect?: DOMRect };
+  /** 链接回退：弹出回退栈栈顶并跳回去（返回键/动作）。回退栈只由 features 维护，reader/ui 只发这个命令 */
+  'linkback.back': Record<string, never>;
   /** 阅读器菜单栏显示/隐藏（features 打开面板前可以要求收起菜单） */
   'menu.hide': Record<string, never>;
 }

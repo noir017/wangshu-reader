@@ -13,6 +13,8 @@ export interface BuildEnv {
   rewriteCss?: (css: string) => Promise<string>;
   /** 排在书内样式之前的附加样式（如 FB2 默认样式） */
   extraStyles?: string[];
+  /** 解析之后、抽样式与清洗之前对文档做一次改写（MOBI 把 filepos/recindex/kindle: 引用改成相对路径等）。只能改属性、删整段元素，不能动文本节点 */
+  prepare?: (doc: Document) => void | Promise<void>;
   lang?: string;
   dir?: 'ltr' | 'rtl';
 }
@@ -114,6 +116,7 @@ function fixPreNewline(html: string): string {
  */
 export async function buildSectionContent(html: string, env: BuildEnv = {}, fragment = false): Promise<SectionContent> {
   const doc = parseHtmlDocument(html, fragment);
+  if (env.prepare) await env.prepare(doc);
   const body = doc.body;
 
   // 1) 样式：<style> 与 <link rel=stylesheet> 按文档顺序抽出

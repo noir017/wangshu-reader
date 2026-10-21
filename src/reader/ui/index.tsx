@@ -10,7 +10,7 @@ import { createReader as realCreateReader } from '@/reader/engine';
 import type { CreateReader } from '@/core/reader';
 import { ReaderFeatures } from '@/features';
 import { getPosition } from '@/storage/db';
-import { promptDialog, openOverlay } from '@/ui';
+import { openOverlay } from '@/ui';
 import { createActionHost } from './actions/host';
 import { HostContext } from './context';
 import { BottomBar, TopBar } from './components/Bars';
@@ -26,6 +26,7 @@ import { useUiNightMode, useReaderBackground } from './hooks/theme-style';
 import { usePositionSaving, useReadingStats } from './hooks/session-persist';
 import { useInputBindings, useLocationState, useMotion, useSystemEffects, useThemeAutomation } from './hooks/session-system';
 import { BookNotFoundError, PasswordNeededError, ServerNeededError, loadBook as realLoadBook, type LoadedBook } from './session/load';
+import { askPassword, savePassword } from './session/password';
 import { loadThemeForBook } from './themes/theme-manager';
 import { resetReaderUi, useReaderUi } from './store';
 import { uiSettings } from './ui-settings';
@@ -49,6 +50,8 @@ export function ReaderPage({ bookId, deps }: { bookId: string; deps?: Partial<Re
   const [session, setSession] = useState<ReaderSession | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [password, setPassword] = useState<string | undefined>(undefined);
+  /** 用户在密码框里勾了「保存密码」：打开成功后才写入 */
+  const savePw = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const hostRef = useRef<HTMLDivElement>(null);
   const host = useMemo(() => createActionHost(), []);
@@ -74,6 +77,8 @@ export function ReaderPage({ bookId, deps }: { bookId: string; deps?: Partial<Re
         const create = deps?.createReader ?? dev?.createReader ?? realCreateReader;
         const loaded = await loadFn(bookId, { password });
         if (cancelled) return void loaded.book.destroy();
+        if (password !== undefined && savePw.current) void savePassword(bookId, password);
+        savePw.current = false;
         book = loaded.book;
         // 书专属主题（名称 = 书文件名）：先暂存当前主题再完整载入
         loadThemeForBook(loaded.record.fileName);
@@ -95,26 +100,34 @@ export function ReaderPage({ bookId, deps }: { bookId: string; deps?: Partial<Re
       stopAutoScroll({ silent: true });
       closeSettings();
       resetReaderUi();
-      controller?.destroy();
+      // 引擎可能还没 open 完（切书很快、严格模式的 effect 清理）：销毁失败不能影响页面
+      try {
+        controller?.destroy();
+      } catch (e) {
+        console.warn('[reader] destroy', e);
+      }
       book?.destroy();
     };
   }, [bookId, reloadKey, password]);
 
-  // 需要密码：弹密码框，取消则回书库
+  // 需要密码：弹密码框（带「保存密码」），取消则回书库
   useEffect(() => {
     if (phase.kind !== 'password') return;
     let alive = true;
-    void promptDialog(phase.wrong ? `${t('password_title')} — ${t('password_wrong')}` : t('password_title'), '', { placeholder: t('password_hint'), type: 'password' }).then((v) => {
+    void askPassword({ wrong: phase.wrong }).then((v) => {
       if (!alive) return;
-      if (v === null || v === '') navigate('');
-      else setPassword(v);
+      if (!v) navigate('');
+      else {
+        savePw.current = v.save;
+        setPassword(v.password);
+      }
     });
     return () => {
       alive = false;
     };
   }, [phase]);
 
-  // 挂载到容器并恢复进度（在 features 的子 effect 之后执行，保证它们先订阅了事件）
+  // 挂载到容器并恢复进度
   useEffect(() => {
     if (!session || !containerRef.current) return;
     let cancelled = false;
@@ -134,9 +147,10 @@ export function ReaderPage({ bookId, deps }: { bookId: string; deps?: Partial<Re
         if (!cancelled) setPhase({ kind: 'error', message: t('open_failed', { msg: (e as Error)?.message ?? String(e) }), retry: true });
       }
     })();
-    session.controller.on('error', (e) => console.error('[reader]', e));
+    const offError = session.controller.on('error', (e) => console.error('[reader]', e));
     return () => {
       cancelled = true;
+      offError();
     };
   }, [session]);
 
@@ -165,7 +179,9 @@ export function ReaderPage({ bookId, deps }: { bookId: string; deps?: Partial<Re
       <div className={s.root} data-night={night} style={{ ...bg, ['--reader-fg' as string]: fontColor }}>
         {statusTop && <StatusBar />}
         <div className={s.host} ref={hostRef}>
-          <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
+          {/* 正文挂载点：color-scheme 固定 light。界面切到深色时（color-scheme: dark），浏览器会给与父级配色不同的
+             iframe 铺一层不透明底色，引擎的正文 iframe 会因此变成白底；正文颜色由主题决定，与界面配色无关 */}
+          <div ref={containerRef} style={{ position: 'absolute', inset: 0, colorScheme: 'light' }} />
           {phase.kind === 'loading' && (
             <div className={s.center}>
               <div className={s.spinner} />
@@ -202,7 +218,8 @@ export function ReaderPage({ bookId, deps }: { bookId: string; deps?: Partial<Re
           </>
         )}
         <Shade />
-        <ReaderSessionContext.Provider value={session}>{session && <ReaderFeatures />}</ReaderSessionContext.Provider>
+        {/* features 要在引擎 open 完之后才能挂：它们渲染时会直接问引擎当前选区/位置 */}
+        <ReaderSessionContext.Provider value={session}>{session && phase.kind === 'ready' && <ReaderFeatures />}</ReaderSessionContext.Provider>
       </div>
     </HostContext.Provider>
   );

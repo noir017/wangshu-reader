@@ -499,8 +499,12 @@ export async function openEpub(file: Blob, opts: OpenOptions): Promise<EpubBook>
       }
     }
   }
-  if (!rawToc.length) {
-    rawToc = p.spine.flatMap((s, i) => (s.linear ? [{ title: heads[i] || String(i + 1), level: 0, section: i }] : []));
+  // 目录为空，或只有 ≤1 个落点而书有好几个正文文件（有的电子书目录只写了「版权声明」一项）：按 spine 顺序生成，
+  // 原目录里已给出名字的章节沿用原名
+  const textSections = p.spine.filter((s, i) => s.linear && charCounts[i] > 0).length;
+  if (!rawToc.length || (new Set(rawToc.map((t) => t.section)).size <= 1 && textSections >= 3)) {
+    const declared = new Map(rawToc.map((t) => [t.section, t.title]));
+    rawToc = p.spine.flatMap((s, i) => (s.linear ? [{ title: declared.get(i) || heads[i] || String(i + 1), level: 0, section: i }] : []));
   }
   const toc: TocEntry[] = rawToc.map((t) => ({ title: t.title.length > 403 ? `${t.title.slice(0, 400)}...` : t.title, level: t.level, section: t.section, ...(t.anchor ? { anchor: t.anchor } : {}) }));
 

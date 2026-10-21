@@ -115,6 +115,41 @@ export async function rasterizeSvg(o: RasterOptions): Promise<HTMLImageElement> 
   return img;
 }
 
+export interface SpreadWindow {
+  frame: ChapterFrame;
+  y: number;
+  clipH: number;
+  /** 文字区左上角在阅读区内的位置 */
+  left: number;
+  top: number;
+  width: number;
+}
+
+/** 双页：把若干窗口（左页、右页）合成到一张整屏图里 */
+export async function rasterizeSpread(o: { box: { w: number; h: number }; background: string; dpr: number; windows: SpreadWindow[] }): Promise<HTMLCanvasElement> {
+  const { w, h } = o.box;
+  const htmls = await Promise.all(o.windows.map((win) => serializeFrame(win.frame)));
+  const parts = o.windows
+    .map(
+      (win, i) =>
+        `<div style="position:absolute;left:${win.left}px;top:${win.top}px;width:${win.width}px;height:${win.clipH}px;overflow:hidden">` +
+        `<div style="position:absolute;left:0;top:${-win.y}px;width:${win.width}px">${htmls[i]}</div></div>`,
+    )
+    .join('');
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><foreignObject x="0" y="0" width="${w}" height="${h}">` +
+    `<div xmlns="http://www.w3.org/1999/xhtml" style="position:relative;width:${w}px;height:${h}px;overflow:hidden;background:${escAttr(o.background)}">${parts}</div></foreignObject></svg>`;
+  const img = new Image();
+  img.decoding = 'async';
+  img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  await img.decode();
+  const c = document.createElement('canvas');
+  c.width = Math.round(w * o.dpr);
+  c.height = Math.round(h * o.dpr);
+  c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height);
+  return c;
+}
+
 /** 栅格化成 canvas（尺寸 = 阅读区 × dpr） */
 export async function rasterizePage(o: RasterOptions): Promise<HTMLCanvasElement> {
   const img = await rasterizeSvg(o);

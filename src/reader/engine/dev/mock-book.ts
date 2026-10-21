@@ -103,3 +103,114 @@ export function makeMockBook(o: MockOptions = {}): ReflowableBook {
     },
   };
 }
+
+// ───────────── 固定版式的程序生成书（PDF/漫画） ─────────────
+import type { FixedBook, FixedPageText } from '@/core/book';
+
+export interface MockFixedOptions {
+  pages?: number;
+  /** 漫画（无文字层） */
+  comic?: boolean;
+  /** 格式名，缺省 pdf / cbz */
+  format?: string;
+  /** 横向页（宽>高）的下标 */
+  wide?: number[];
+  /** 长条页（600×2400）的下标 */
+  tall?: number[];
+  direction?: 'ltr' | 'rtl';
+  /** renderPage 延迟 ms */
+  delay?: number;
+  title?: string;
+}
+
+const LINES = 10;
+const LINE_Y = (k: number) => 120 + k * 62;
+const FONT = '28px monospace';
+
+export function makeMockFixedBook(o: MockFixedOptions = {}): FixedBook {
+  const n = o.pages ?? 12;
+  const comic = !!o.comic;
+  const sizeOf = (i: number) => (o.wide?.includes(i) ? { width: 800, height: 600 } : o.tall?.includes(i) ? { width: 600, height: 2400 } : comic ? { width: 700, height: 1000 } : { width: 600, height: 800 });
+  const lineText = (i: number, k: number) => `P${i + 1} L${k + 1} hello world`.padEnd(22, '.');
+  let charW = 0;
+  const measure = () => {
+    if (!charW) {
+      const c = document.createElement('canvas').getContext('2d')!;
+      c.font = FONT;
+      charW = c.measureText('m').width;
+    }
+    return charW;
+  };
+  const hue = (i: number) => (i * 47) % 360;
+  return {
+    kind: 'fixed',
+    format: o.format ?? (comic ? 'cbz' : 'pdf'),
+    metadata: { title: o.title ?? (comic ? '示例漫画' : '示例 PDF'), authors: ['测试'], direction: o.direction },
+    toc: [
+      { title: '第一部分', level: 0, section: 0 },
+      { title: '第二部分', level: 0, section: Math.min(n - 1, 5) },
+    ],
+    pageCount: n,
+    async getCover() {
+      return null;
+    },
+    destroy() {},
+    async getPageSize(i) {
+      return sizeOf(i);
+    },
+    async renderPage(i, r) {
+      if (o.delay) await new Promise((res) => setTimeout(res, o.delay));
+      const s = sizeOf(i);
+      const scale = Math.min((r.width * r.dpr) / s.width, (r.height * r.dpr) / s.height);
+      const c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(s.width * scale));
+      c.height = Math.max(1, Math.round(s.height * scale));
+      const g = c.getContext('2d')!;
+      g.scale(scale, scale);
+      if (comic) {
+        const grad = g.createLinearGradient(0, 0, s.width, s.height);
+        grad.addColorStop(0, `hsl(${hue(i)},70%,70%)`);
+        grad.addColorStop(1, `hsl(${hue(i) + 60},70%,35%)`);
+        g.fillStyle = grad;
+        g.fillRect(0, 0, s.width, s.height);
+        g.fillStyle = 'rgba(255,255,255,.85)';
+        g.font = 'bold 220px sans-serif';
+        g.textAlign = 'center';
+        g.fillText(String(i + 1), s.width / 2, s.height / 2 + 80);
+        g.strokeStyle = '#000';
+        g.lineWidth = 6;
+        g.strokeRect(20, 20, s.width - 40, s.height - 40);
+      } else {
+        g.fillStyle = '#fff';
+        g.fillRect(0, 0, s.width, s.height);
+        g.strokeStyle = '#999';
+        g.lineWidth = 2;
+        g.strokeRect(10, 10, s.width - 20, s.height - 20);
+        g.fillStyle = '#c33';
+        g.font = 'bold 56px sans-serif';
+        g.fillText(`Page ${i + 1}`, 40, 80);
+        g.fillStyle = '#111';
+        g.font = FONT;
+        for (let k = 0; k < LINES; k++) g.fillText(lineText(i, k), 40, LINE_Y(k) + 24);
+        g.fillStyle = '#69c';
+        g.fillRect(380, s.height - 130, 180, 90);
+      }
+      return c;
+    },
+    getPageText: comic
+      ? undefined
+      : async (i): Promise<FixedPageText | null> => {
+          if (i < 0 || i >= n) return null;
+          const s = sizeOf(i);
+          const w = measure() * 22;
+          let text = '';
+          const items: FixedPageText['items'] = [];
+          for (let k = 0; k < LINES; k++) {
+            const t = lineText(i, k);
+            items.push({ start: text.length, end: text.length + t.length, x: 40 / s.width, y: LINE_Y(k) / s.height, w: w / s.width, h: 32 / s.height });
+            text += t + '\n';
+          }
+          return { text, items };
+        },
+  };
+}

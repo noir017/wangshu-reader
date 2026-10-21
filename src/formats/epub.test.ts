@@ -325,3 +325,22 @@ describe('EPUB DRM / 脚注 / 文件名回退', () => {
     await expect(openBook(f, { fileName: 'bad.epub' })).rejects.toThrow();
   });
 });
+
+describe('目录只有 1 项的多文件电子书（Gutenberg 中文 EPUB 的实际情况）', () => {
+  it('按 spine 顺序生成目录，原目录里给出的名字沿用，标题取首个 h1', async () => {
+    const chapters = ['甲', '乙', '丙', '丁'].map((n, i) => ({ id: `c${i}`, file: `c${i}.xhtml`, body: `<h1>第${n}章</h1><p>${longText}</p>` }));
+    const b = await open({ chapters, ncx: false, nav: NAV('<li><a href="c3.xhtml">只写了这一项</a></li>') });
+    expect(b.toc.map((t) => [t.title, t.section])).toEqual([
+      ['第甲章', 0],
+      ['第乙章', 1],
+      ['第丙章', 2],
+      ['只写了这一项', 3],
+    ]);
+  });
+
+  it('目录有 2 个以上落点时不动', async () => {
+    const chapters = ['甲', '乙', '丙'].map((n, i) => ({ id: `c${i}`, file: `c${i}.xhtml`, body: `<h1>第${n}章</h1><p>${longText}</p>` }));
+    const b = await open({ chapters, nav: NAV('<li><a href="c0.xhtml">自定义一</a></li><li><a href="c2.xhtml">自定义三</a></li>') });
+    expect(b.toc.map((t) => t.title)).toEqual(['自定义一', '自定义三']);
+  });
+});

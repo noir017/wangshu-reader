@@ -61,8 +61,8 @@ export interface ReaderEvents {
   decorationClick: { layer: string; id: string; rect: DOMRect };
   /** 键盘按键（引擎已处理翻页类按键时不再派发） */
   key: { key: string; code: string; event: KeyboardEvent };
-  /** 自动滚屏状态 */
-  autoScroll: { running: boolean; speed: number };
+  /** 自动滚屏状态。paused=true：仍处于自动滚屏中、只是暂停了（此时 running=false，点击正文可恢复）；真正停止时 paused 为 false */
+  autoScroll: { running: boolean; paused?: boolean; speed: number };
   /** 到达书末再往后翻 */
   endOfBook: void;
   error: Error;
@@ -87,7 +87,7 @@ export type GoToTarget =
 
 export interface ReaderController {
   readonly book: Book;
-  /** 挂到容器上并显示 at 位置（缺省为开头） */
+  /** 挂到容器上并显示 at 位置（缺省为开头）。open 完成之前（以及 destroy 之后）查询类方法返回 null/false/空数组，不得抛错 */
   open(container: HTMLElement, at?: Locator): Promise<void>;
   destroy(): void;
 

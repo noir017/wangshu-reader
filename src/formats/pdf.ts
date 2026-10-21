@@ -1,20 +1,35 @@
 // PDF（PDF-001/003 + FMT-018 元数据/封面）：pdfjs-dist → FixedBook。
 // - worker 用 `?worker&inline` 打进包里（单文件构建也能用）；所有文档共享一个 worker，引用计数，闲置 5 秒后回收。
 // - 密码：opts.extra.password；缺密码/密码错抛 PasswordRequiredError（reason 区分），阅读页据此弹密码框后带 password 重试。
-// - CJK 预定义 CMap（非内嵌字体的中日韩 PDF 需要）从包里懒加载；标准字体、JPX/ICC 的 wasm 不打包（回退到系统字体/跳过这类图片）。
+// - CJK 预定义 CMap、标准字体、JBIG2/JPEG2000 的 wasm 从包里懒加载（见下面「随包数据」）。
 import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
 import type { Book, BookMetadata, BookProbe, FixedBook, FixedPageText, FormatParser, OpenOptions, TocEntry } from '@/core/book';
-import { PasswordRequiredError, UnsupportedFormatError, corrupt } from './errors';
+import { BookOpenError, PasswordRequiredError, UnsupportedFormatError, corrupt, fmtMsg } from './errors';
 import { readBytes, startsWithAscii } from './lib/bytes';
 import { metaFromFileName } from './lib/text';
 
-type Pdfjs = typeof import('pdfjs-dist');
+// 用 legacy 构建：带 polyfill（Uint8Array.toHex、Promise.try 等），旧 Android WebView 和 Node 24 都能跑；体积多约 20%
+type Pdfjs = typeof import('pdfjs-dist/legacy/build/pdf.mjs');
 
-// ───────────────────────── CMap（懒加载，只打包常用的 CJK 集合） ─────────────────────────
-const CMAP_LOADERS = import.meta.glob(['/node_modules/pdfjs-dist/cmaps/*.bcmap', '!/node_modules/pdfjs-dist/cmaps/*UTF32*', '!/node_modules/pdfjs-dist/cmaps/*UTF8*', '!/node_modules/pdfjs-dist/cmaps/UniJIS2004*', '!/node_modules/pdfjs-dist/cmaps/UniJISX*'], {
-  query: '?inline',
-  import: 'default',
-}) as Record<string, () => Promise<string>>;
+// ───────────────────────── 随包数据（懒加载，用到才取） ─────────────────────────
+// pdf.js 运行时要的二进制数据：CJK 预定义 CMap（非内嵌字体的中日韩 PDF）、标准字体（Helvetica/Times 等未内嵌的标准 14 字体）、
+// JBIG2 / JPEG2000 解码器的 wasm（扫描版书籍常用）。单文件构建里不能去拉本地静态文件，所以用 ?inline 打成 data URI，
+// 由主线程的 BinaryDataFactory 按需读出来交给 worker（useWorkerFetch=false）。ICC/QCMS 的 wasm 需要 worker 自己 fetch，不支持（颜色退回备用色彩空间）。
+const ASSET_LOADERS = import.meta.glob(
+  [
+    '/node_modules/pdfjs-dist/cmaps/*.bcmap',
+    '!/node_modules/pdfjs-dist/cmaps/*UTF32*',
+    '!/node_modules/pdfjs-dist/cmaps/*UTF8*',
+    '!/node_modules/pdfjs-dist/cmaps/UniJIS2004*',
+    '!/node_modules/pdfjs-dist/cmaps/UniJISX*',
+    '/node_modules/pdfjs-dist/standard_fonts/*.{pfb,ttf}',
+    '/node_modules/pdfjs-dist/wasm/{jbig2,openjpeg}.wasm',
+  ],
+  // ?url 强制按资源处理（.bcmap/.pfb 不在 vite 的资源扩展名里，光写 ?inline 会被当 JS 解析而报错），&inline 再强制内联成 data URI
+  { query: '?url&inline', import: 'default' },
+) as Record<string, () => Promise<string>>;
+
+const ASSET_DIRS: Record<string, string> = { cMapUrl: 'cmaps', standardFontDataUrl: 'standard_fonts', wasmUrl: 'wasm' };
 
 function dataUriToBytes(uri: string): Uint8Array {
   const b64 = uri.slice(uri.indexOf(',') + 1);
@@ -24,11 +39,11 @@ function dataUriToBytes(uri: string): Uint8Array {
   return out;
 }
 
-class BundledBinaryData {
+export class BundledBinaryData {
   async fetch({ kind, filename }: { kind: string; filename: string }): Promise<Uint8Array> {
-    if (kind !== 'cMapUrl') throw new Error(`未打包的数据：${kind}`);
-    const load = CMAP_LOADERS[`/node_modules/pdfjs-dist/cmaps/${filename}`];
-    if (!load) throw new Error(`未打包的 CMap：${filename}`);
+    const dir = ASSET_DIRS[kind];
+    const load = dir ? ASSET_LOADERS[`/node_modules/pdfjs-dist/${dir}/${filename}`] : undefined;
+    if (!load) throw new Error(`未打包的数据：${kind}/${filename}`);
     return dataUriToBytes(await load());
   }
 }
@@ -65,27 +80,54 @@ function makeCanvas(w: number, h: number): CanvasHandle {
 // ───────────────────────── pdfjs 与 worker（共享，引用计数） ─────────────────────────
 let pdfjsPromise: Promise<Pdfjs> | null = null;
 function loadPdfjs(): Promise<Pdfjs> {
-  return (pdfjsPromise ??= import('pdfjs-dist'));
+  return (pdfjsPromise ??= import('pdfjs-dist/legacy/build/pdf.mjs'));
 }
 
 interface SharedWorker {
   worker: InstanceType<Pdfjs['PDFWorker']>;
   port: Worker | null;
+  /** worker 脚本加载/运行失败时 reject（pdf.js 自己不会报，打开会一直挂着） */
+  failure: Promise<never>;
   refs: number;
   timer?: ReturnType<typeof setTimeout>;
 }
 let shared: SharedWorker | null = null;
 
-async function createPort(): Promise<Worker | null> {
-  if (typeof Worker === 'undefined') return null; // Node/测试：pdfjs 自己用主线程「假 worker」
-  const mod = await import('pdfjs-dist/build/pdf.worker.min.mjs?worker&inline');
-  return new mod.default();
+/**
+ * 把 pdf.js 的 worker 脚本（ES 模块文本）改成经典 worker 能跑的样子：
+ * file:// 打开单文件构建时页面源是 null，浏览器不允许从 blob: URL 加载「模块 worker」（只触发无信息的 error 事件，pdf.js 一直等），
+ * 但经典 worker 可以；所以不用 vite 的 ?worker&inline（它生成模块 worker），自己把脚本内联成字符串、去掉 export、
+ * 把只在 Emscripten 胶水里用来算相对路径的 import.meta.url 换成 self.location.href。
+ */
+export function toClassicWorkerSource(src: string): string {
+  return src.replace(/import\.meta\.url/g, 'self.location.href').replace(/export\s*\{[^}]*\}\s*;?\s*$/, '');
+}
+
+async function createPort(): Promise<{ port: Worker | null; failure: Promise<never> }> {
+  const never = new Promise<never>(() => undefined);
+  if (typeof Worker === 'undefined') return { port: null, failure: never }; // Node/测试：pdfjs 自己用主线程「假 worker」
+  const { default: source } = await import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?raw');
+  const url = URL.createObjectURL(new Blob([toClassicWorkerSource(source)], { type: 'text/javascript' }));
+  const port = new Worker(url, { name: 'pdfjs' });
+  const failure = new Promise<never>((_, reject) => {
+    port.addEventListener('error', (e) => {
+      console.error('[pdf worker error]', e.message, e.filename, e.lineno);
+      reject(new BookOpenError('unsupported', fmtMsg('pdfWorker', { why: e.message || 'script error' })));
+    });
+  });
+  failure.catch(() => undefined);
+  return { port, failure };
 }
 
 async function acquireWorker(pdfjs: Pdfjs): Promise<SharedWorker> {
   if (!shared) {
-    const port = await createPort();
-    shared = { worker: port ? new pdfjs.PDFWorker({ port }) : new pdfjs.PDFWorker(), port, refs: 0 };
+    const { port, failure } = await createPort();
+    // pdfjs 6.x 的类型把 PDFWorker 的 port 参数标成了 null（JSDoc 笔误），运行时接受 Worker
+    const w: SharedWorker = { worker: port ? new pdfjs.PDFWorker({ port } as never) : new pdfjs.PDFWorker(), port, failure, refs: 0 };
+    failure.catch(() => {
+      if (shared === w) shared = null; // 下次重新建
+    });
+    shared = w;
   }
   clearTimeout(shared.timer);
   shared.refs++;
@@ -184,9 +226,9 @@ async function openDoc(file: Blob, opts: OpenOptions): Promise<Opened> {
     password,
     worker: w.worker,
     verbosity: 0,
-    isEvalSupported: false,
     BinaryDataFactory: BundledBinaryData as never,
-    useWasm: false,
+    useWorkerFetch: false,
+    useWasm: true,
   });
   const release = async () => {
     try {
@@ -196,10 +238,11 @@ async function openDoc(file: Blob, opts: OpenOptions): Promise<Opened> {
     }
   };
   try {
-    const doc = await task.promise;
+    const doc = await Promise.race([task.promise, w.failure]);
     return { doc, pdfjs, release };
   } catch (e) {
     await release().catch(() => undefined);
+    if (e instanceof BookOpenError) throw e;
     if (e instanceof pdfjs.PasswordException || (e as { name?: string })?.name === 'PasswordException') {
       const code = (e as { code?: number }).code;
       throw new PasswordRequiredError(code === pdfjs.PasswordResponses.INCORRECT_PASSWORD ? 'incorrect' : 'need');

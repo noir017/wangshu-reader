@@ -35,6 +35,8 @@ export interface FrameLoadOptions {
   post?: (frame: ChapterFrame) => void | Promise<void>;
   /** 书籍语言兜底 */
   lang?: string;
+  /** 强制语言（断字语言设置）：优先于章节自带的 lang */
+  langOverride?: string;
 }
 
 const NEAR = 1.5;
@@ -53,6 +55,8 @@ export class ChapterFrame {
   slot = 0;
   /** 实际排版后量到的自然行高比 */
   measuredLhRatio = 0;
+  /** 页高（窗口高度），表格行是否整行翻页的判断用 */
+  pageH = 600;
   private linesCache: LineBox[] | null = null;
   private nodeBoxes: { top: Float64Array; bottom: Float64Array } | null = null;
   private lhCache = new Map<Element, number>();
@@ -97,12 +101,13 @@ export class ChapterFrame {
   async load(o: FrameLoadOptions): Promise<void> {
     const { content, cfg } = o;
     this.width = Math.round(cfg.width);
+    this.pageH = cfg.height;
     this.iframe.style.width = `${this.width}px`;
     this.iframe.style.height = `${Math.round(cfg.height)}px`;
     this.host.style.width = `${this.width}px`;
     this.host.style.height = `${Math.round(cfg.height)}px`;
     const html = buildDocumentHtml({
-      lang: content.lang ?? o.lang,
+      lang: o.langOverride || (content.lang ?? o.lang),
       dir: content.dir,
       bodyAttrs: content.bodyAttrs,
       bodyHtml: content.bodyHtml,
@@ -260,10 +265,15 @@ export class ChapterFrame {
         const half = Math.max(lh, r.height) / 2;
         const t = mid - half;
         const b = mid + half;
-        boxes.push({ top: t, bottom: b, ink: r.bottom });
+        boxes.push({ top: t, bottom: b, ink: r.bottom, inkTop: r.top });
         if (t < top[i]) top[i] = t;
         if (b > bottom[i]) bottom[i] = b;
       }
+    }
+    // 表格行：单元格里的文字可能多行且垂直居中，行与行交错，按整行当作不可拆分块（比页高大的行除外）
+    for (const tr of Array.from(doc.querySelectorAll('tr'))) {
+      const r = tr.getBoundingClientRect();
+      if (r.height > 0.5 && r.height < this.pageH * 0.9) boxes.push({ top: r.top, bottom: r.bottom, atomic: true });
     }
     for (const el of Array.from(doc.querySelectorAll('img,svg,video,canvas,hr,object,iframe'))) {
       // 行内的小图（如表情）会和所在行合并，不单独成行

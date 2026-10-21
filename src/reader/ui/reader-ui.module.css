@@ -777,6 +777,9 @@
   color: #fff;
   padding: 0 3px;
 }
+.lockBtn[data-thumbs='true'] {
+  bottom: 136px; /* 缩略图条（约 80px）之上 */
+}
 .lockBtn {
   position: fixed;
   right: 12px;

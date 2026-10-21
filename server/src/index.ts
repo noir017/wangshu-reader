@@ -19,8 +19,9 @@ import * as transfer from './routes/transfer';
 import * as translate from './routes/translate';
 import * as tts from './routes/tts';
 import { isAuthorized } from './util/auth';
+import { rarTmp } from './lib/rar';
 import { cleanStaleTmp } from './util/body';
-import { davCors } from './util/cors';
+import { davCors, originGuard } from './util/cors';
 
 export interface ServerContext {
   config: ServerConfig;
@@ -65,7 +66,12 @@ const EXPOSED_HEADERS = [
 export function createApp(config: ServerConfig): Hono {
   const app = new Hono();
   const ctx: ServerContext = { config };
+  rarTmp.dir = config.tmpDir;
 
+  // 没有令牌时挡掉别的网站发来的跨站请求（见 originGuard 的说明）；预检也要挡，浏览器才不会发后续请求
+  if (!config.token) {
+    for (const p of ['/api/*', '/dav', '/dav/*']) app.use(p, originGuard());
+  }
   // 单文件 html 从 file:// 打开时 Origin 为 null，所以 API 默认放开 CORS；鉴权靠可选的 token
   app.use('/api/*', cors({ origin: (o) => o || '*', allowMethods: API_METHODS, exposeHeaders: EXPOSED_HEADERS, maxAge: 86400 }));
   // /dav 的 OPTIONS 既是 CORS 预检也是 WebDAV 能力探测，不能交给通用 cors 中间件一刀切
@@ -100,6 +106,8 @@ export function createApp(config: ServerConfig): Hono {
 
   app.onError((err, c) => {
     if (err instanceof HTTPException) return c.json({ error: err.message }, err.status);
+    // 客户端中途断开（上传到一半、下载取消）不是服务端的错，别刷日志
+    if ((err as NodeJS.ErrnoException).code === 'ECONNRESET' || err.message === 'aborted') return c.body(null, 499 as never);
     console.error(`[server] ${c.req.method} ${c.req.path}:`, err);
     return c.json({ error: err.message || 'internal error' }, 500);
   });
@@ -125,7 +133,7 @@ if (process.argv[1] && (path.resolve(process.argv[1]) === fileURLToPath(import.m
     console.log(`[server] listening on http://${info.address}:${info.port} static=${config.staticDir ?? '-'} data=${config.dataDir}`);
     console.log(
       `[server] features: ${Object.entries(config.features)
-        .map(([k, v]) => `${k}=${v ? 'on' : 'off'}`)
+        .map(([k, v]) => `${k}=${k === 'proxy' ? `${v ? config.proxy.mode : 'off'}` : v ? 'on' : 'off'}`)
         .join(' ')}`,
     );
     if (config.libraryRoots.length) console.log(`[server] library: ${config.libraryRoots.map((r) => `${r.name}=${r.dir}`).join(' ')}${config.libraryReadonly ? ' (readonly)' : ''}`);

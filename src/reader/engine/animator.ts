@@ -15,6 +15,32 @@ export interface FlipSession {
   end(): void;
 }
 
+/** 一次翻页动画的实现：anim 是实际生效的动画号（栅格化失败时会从仿真降级成水平切换） */
+export interface FlipPlan {
+  session: FlipSession;
+  anim: number;
+  /** 动画结束提交时需要把同一章的主/副本互换（同章内翻页用副本显示目标窗口） */
+  swapSection?: number;
+}
+
+/** 动画器依赖的宿主：可重排引擎（章节 iframe）与固定版式引擎（页面画布）各自实现 */
+export interface FlipHost {
+  boxW: number;
+  /** 动画/拖拽进行中；宿主在此期间不接受别的翻页 */
+  turning: boolean;
+  pos: Pos;
+  flipAnimation(): number;
+  targetOf(dir: 1 | -1, from: Pos): Promise<TurnTarget | null>;
+  prepareFlip(anim: number, dir: 1 | -1, from: Pos, target: TurnTarget, click: boolean): Promise<FlipPlan | null>;
+  /** 动画结束：提交位置（可以是异步的：新屏准备好之前动画层不撤） */
+  commitFlip(plan: FlipPlan, target: TurnTarget, dir: 1 | -1, from: Pos): void | Promise<void>;
+  /** 动画中止/回弹：恢复静态显示 */
+  restoreView(): void;
+  /** 想翻到的方向没有页了（dir 为动画方向） */
+  noTarget(dir: 1 | -1): void;
+  fail(err: Error): void;
+}
+
 interface Active {
   session: FlipSession;
   anim: number;
@@ -46,7 +72,7 @@ export function flipDuration(anim: number, speed: number, remaining = 1): number
   }
 }
 
-class DomSession implements FlipSession {
+export class DomSession implements FlipSession {
   private shadow?: HTMLDivElement;
   /** 覆盖翻页里「盖在上面的那页」需要不透明的纸，否则下面的文字会透上来 */
   private backing?: HTMLDivElement;
@@ -144,6 +170,58 @@ class DomSession implements FlipSession {
   }
 }
 
+/** 可重排引擎的动画宿主：单页用章节 iframe 直接做 DOM 动画/栅格化成纹理，双页用整屏纹理 */
+export function engineFlipHost(e: Engine): FlipHost {
+  return {
+    get boxW() {
+      return e.boxW;
+    },
+    get turning() {
+      return e.turning;
+    },
+    set turning(v: boolean) {
+      e.turning = v;
+    },
+    get pos() {
+      return e.pos;
+    },
+    flipAnimation: () => flipSettings.get().flipAnimation,
+    targetOf: (dir, from) => e.targetOf(dir, from),
+    async prepareFlip(anim, dir, from, target, click) {
+      try {
+        if (e.dualNow()) return await e.dualFlip(anim, dir, from, target, click);
+        const a = e.frames.get(from.section) ?? (await e.ensureFrame(from.section));
+        let b: ChapterFrame;
+        let swapSection: number | undefined;
+        if (target.section === from.section) {
+          b = await e.ensureSpare(target.section);
+          swapSection = target.section;
+        } else {
+          b = await e.ensureFrame(target.section);
+        }
+        if (anim === 1 || anim === 2) {
+          const session = await CurlSession.create(e, anim, dir, a, b, from.y, target.y, click);
+          if (session) return { session, anim, swapSection };
+          anim = 3; // 栅格化失败：降级为水平切换
+        }
+        return { session: new DomSession(e, anim, dir, a, b, from.y, target.y), anim, swapSection };
+      } catch (err) {
+        e.emit('error', err as Error);
+        return null;
+      }
+    },
+    commitFlip(plan, target, dir, from) {
+      if (plan.swapSection !== undefined) e.swapSpare(plan.swapSection);
+      e.commit(target, dir, from);
+    },
+    restoreView: () => e.render(),
+    noTarget: (dir) => {
+      if (dir > 0) e.emit('endOfBook', undefined);
+    },
+    fail: (err) => e.emit('error', err),
+  };
+}
+
 export class Animator {
   private active?: Active;
   private raf = 0;
@@ -156,7 +234,7 @@ export class Animator {
   private dragY0 = 0;
   private dragY = 0;
 
-  constructor(private e: Engine) {}
+  constructor(private h: FlipHost) {}
 
   supports(anim: number): boolean {
     return anim >= 1 && anim <= 7;
@@ -164,6 +242,10 @@ export class Animator {
 
   destroy(): void {
     this.cancel();
+  }
+
+  get busy(): boolean {
+    return !!this.active || this.dragging;
   }
 
   /** 中止进行中的动画/拖拽，页面回到当前位置（不提交） */
@@ -177,9 +259,9 @@ export class Animator {
     this.dragReady = undefined;
     if (act) {
       act.session.end();
-      this.e.render();
+      this.h.restoreView();
     }
-    this.e.turning = false;
+    this.h.turning = false;
   }
 
   cancelDrag(): void {
@@ -187,27 +269,9 @@ export class Animator {
   }
 
   private async begin(anim: number, dir: 1 | -1, from: Pos, target: TurnTarget, click: boolean): Promise<Active | null> {
-    const e = this.e;
-    try {
-      const a = e.frames.get(from.section) ?? (await e.ensureFrame(from.section));
-      let b: ChapterFrame;
-      let swapSection: number | undefined;
-      if (target.section === from.section) {
-        b = await e.ensureSpare(target.section);
-        swapSection = target.section;
-      } else {
-        b = await e.ensureFrame(target.section);
-      }
-      if (anim === 1 || anim === 2) {
-        const session = await CurlSession.create(e, anim, dir, a, b, from.y, target.y, click);
-        if (!session) return this.begin(3, dir, from, target, click); // 栅格化失败：降级为水平切换
-        return { session, anim, dir, from, target, swapSection, p: 0, click };
-      }
-      return { session: new DomSession(e, anim, dir, a, b, from.y, target.y), anim, dir, from, target, swapSection, p: 0, click };
-    } catch (err) {
-      e.emit('error', err as Error);
-      return null;
-    }
+    const plan = await this.h.prepareFlip(anim, dir, from, target, click);
+    if (!plan) return null;
+    return { session: plan.session, anim: plan.anim, dir, from, target, swapSection: plan.swapSection, p: 0, click };
   }
 
   private play(act: Active, p0: number, p1: number, duration: number, ease: (t: number) => number): Promise<void> {
@@ -241,16 +305,12 @@ export class Animator {
     return ease3;
   }
 
-  private finish(act: Active, ok: boolean): void {
-    const e = this.e;
-    act.session.end();
+  private async finish(act: Active, ok: boolean): Promise<void> {
     this.active = undefined;
-    if (ok) {
-      if (act.swapSection !== undefined) e.swapSpare(act.swapSection);
-      e.commit(act.target, act.dir, act.from);
-    } else {
-      e.render();
-    }
+    // 先提交新位置再撤动画层，中间不会闪出旧页
+    if (ok) await this.h.commitFlip({ session: act.session, anim: act.anim, swapSection: act.swapSection }, act.target, act.dir, act.from);
+    else this.h.restoreView();
+    act.session.end();
   }
 
   /** 点击/按键/横划触发的整页动画 */
@@ -259,9 +319,9 @@ export class Animator {
     if (!act) return false;
     this.active = act;
     const speed = flipSettings.get().flipSpeed;
-    await this.play(act, 0, 1, flipDuration(anim, speed), this.easeFor(act));
+    await this.play(act, 0, 1, flipDuration(act.anim, speed), this.easeFor(act));
     if (this.active !== act) return true; // 被 cancel：状态已由 cancel 处理
-    this.finish(act, true);
+    await this.finish(act, true);
     return true;
   }
 
@@ -273,38 +333,37 @@ export class Animator {
   /** 测试用：把动画定格在进度 p（截图核对），debugEnd 复位 */
   async debugShow(dir: 1 | -1, anim: number, p: number): Promise<boolean> {
     this.cancel();
-    const e = this.e;
-    const from = { ...e.pos };
-    const target = await e.targetOf(dir, from);
+    const from = { ...this.h.pos };
+    const target = await this.h.targetOf(dir, from);
     if (!target) return false;
     const act = await this.begin(anim, dir, from, target, false);
     if (!act) return false;
     this.active = act;
-    e.turning = true;
+    this.h.turning = true;
     act.session.setP(p);
     return true;
   }
 
   // ───────────── 手指跟随 ─────────────
   async dragBegin(dir: 1 | -1, _x0: number, y0: number): Promise<void> {
-    const e = this.e;
-    if (e.turning || this.dragging) return;
-    e.turning = true;
+    const h = this.h;
+    if (h.turning || this.dragging) return;
+    h.turning = true;
     this.dragging = true;
     this.dragDir = dir;
     this.dragDx = 0;
     this.dragP = 0;
     this.dragY0 = y0;
     this.dragY = y0;
-    const from = { ...e.pos };
+    const from = { ...h.pos };
     const token = ++this.token;
     this.dragReady = (async () => {
-      const target = await e.targetOf(dir, from);
+      const target = await h.targetOf(dir, from);
       if (!target) {
-        if (dir > 0) e.emit('endOfBook', undefined);
+        h.noTarget(dir);
         return false;
       }
-      const anim = flipSettings.get().flipAnimation;
+      const anim = h.flipAnimation();
       const act = await this.begin(anim, dir, from, target, false);
       if (!act || token !== this.token) {
         act?.session.end();
@@ -322,7 +381,7 @@ export class Animator {
   }
 
   private pFromDrag(): number {
-    const W = Math.max(1, this.e.boxW);
+    const W = Math.max(1, this.h.boxW);
     const toward = this.dragDir > 0 ? -this.dragDx : this.dragDx;
     return clamp01(toward / (W * 0.9));
   }
@@ -349,7 +408,7 @@ export class Animator {
       this.dragging = false;
       if (!ok || !act) {
         this.dragReady = undefined;
-        this.e.turning = false;
+        this.h.turning = false;
         return;
       }
       const toward = this.dragDir > 0 ? -vx : vx;
@@ -362,8 +421,8 @@ export class Animator {
       await this.play(act, act.p, target, dur, (t) => ease3(t));
       if (this.active !== act) return;
       this.dragReady = undefined;
-      this.finish(act, complete);
-      this.e.turning = false;
+      await this.finish(act, complete);
+      this.h.turning = false;
     })();
   }
 }

@@ -13,13 +13,16 @@ import { effectiveFontSize, fontStack, type RenderConfig } from './css';
 import { flagsFrom } from './book-css';
 import { ChapterFrame } from './frame';
 import { resolveFont, type ResolvedFont } from './fonts';
-import { estimatePage, estimatePages, lastPageTop, lastShownLine, nextPageTop, oneLineTag, prevPageTop, snapToLineTop } from './lines';
+import { estimatePage, estimatePages, lastPageTop, nextPageTop, oneLineTag, pageClipHeight, prevPageTop, snapToLineTop } from './lines';
 import { applyTransforms, nameSettings, type NameRule } from './transforms';
+import { applyExtras } from './extras';
 import { resolveBackground } from './textures';
 import { Gestures } from './gestures';
 import { Decorations } from './decorations';
 import { SelectionManager } from './selection';
-import { Animator } from './animator';
+import { Animator, engineFlipHost, type FlipPlan } from './animator';
+import { rasterizeSpread } from './raster';
+import { textureFlip } from './texflip';
 import { AutoScroller } from './autoscroll';
 
 export type Mode = 'paged' | 'scroll';
@@ -35,7 +38,7 @@ export interface TurnTarget {
 class StaleError extends Error {}
 
 const COLOR_TEXT_KEYS = new Set(['fontColor', 'backgroundColor', 'useBackgroundImage', 'backgroundImage', 'fontShadow']);
-const COLOR_CSS_KEYS = new Set(['linkColor', 'linkColorNight', 'linkVisitedColor', 'linkVisitedColorNight', 'noteTextColor', 'noteBackColor', 'noteTextColorNight', 'noteBackColorNight', 'footnoteOnBottom', 'chapterEndPrompt', 'longTapImageFullScreen']);
+const COLOR_CSS_KEYS = new Set(['linkColor', 'linkColorNight', 'linkVisitedColor', 'linkVisitedColorNight', 'noteTextColor', 'noteBackColor', 'noteTextColorNight', 'noteBackColorNight', 'longTapImageFullScreen']);
 const IGNORE_TEXT_KEYS = new Set(['txtChapterSplit', 'keepOneLineWhenPaging', 'textEncode']);
 
 function changedKeys<T extends object>(a: T, b: T): string[] {
@@ -75,14 +78,17 @@ export class Engine implements ReaderController {
   private prefixChars: number[] = [];
   private totalChars = 0;
   turning = false;
+  /** 点过的链接（section|href），重载章节后仍显示为已访问色 */
+  private visited = new Set<string>();
   /** 外部（UI）可设置的仅本书名字规则 */
   private bookRules: NameRule[] = [];
 
   gestures!: Gestures;
-  decorations!: Decorations;
-  selection!: SelectionManager;
-  animator!: Animator;
-  autoscroll!: AutoScroller;
+  // 这几个在构造时就建好：open 之前、destroy 之后查询类方法也要能安全返回（接口约定不得抛错）
+  decorations = new Decorations(this);
+  selection = new SelectionManager(this);
+  animator = new Animator(engineFlipHost(this));
+  autoscroll = new AutoScroller(this);
 
   constructor(book: ReflowableBook) {
     this.book = book;
@@ -111,6 +117,16 @@ export class Engine implements ReaderController {
 
   get mode(): Mode {
     return this.autoMode ?? (flipSettings.get().flipAnimation === 0 ? 'scroll' : 'paged');
+  }
+
+  /** 当前布局是否是双页（已按双页排版） */
+  dualNow(): boolean {
+    return this.dualLaid;
+  }
+
+  /** 双页：右页文字区左缘相对舞台（= 左页文字区左缘）的偏移 */
+  get rightPageX(): number {
+    return this.W + this.inset.r + this.inset.l;
   }
 
   /** 自动滚屏开始/结束时，双页状态是否随之变化（需要重排） */
@@ -178,10 +194,6 @@ export class Engine implements ReaderController {
     if (getComputedStyle(container).position === 'static') container.style.position = 'relative';
     container.appendChild(root);
 
-    this.decorations = new Decorations(this);
-    this.selection = new SelectionManager(this);
-    this.animator = new Animator(this);
-    this.autoscroll = new AutoScroller(this);
     this.gestures = new Gestures(this);
     this.gestures.attachRoot(root);
 
@@ -208,8 +220,14 @@ export class Engine implements ReaderController {
     if (autoScrollSettings.get().startAutoScroll) this.startAutoScroll();
   }
 
+  /** 已 open 且未 destroy */
+  private get live(): boolean {
+    return !!this.stage && !this.destroyed;
+  }
+
   destroy(): void {
     this.destroyed = true;
+    this.lastLoc = null;
     this.epoch++;
     clearTimeout(this.refreshTimer);
     clearTimeout(this.relocateTimer);
@@ -338,7 +356,7 @@ export class Engine implements ReaderController {
   }
 
   async relayout(): Promise<void> {
-    await this.rebuild();
+    if (this.live) await this.rebuild();
   }
 
   // ───────────── 章节加载 ─────────────
@@ -405,7 +423,18 @@ export class Engine implements ReaderController {
         flags: flagsFrom(cssSettings.get()),
         fontFaceCss: this.font.css,
         lang: this.book.metadata.language,
-        post: (fr) => applyTransforms(fr, this.transformOptions()),
+        langOverride: textSettings.get().textHyphenation ? textSettings.get().hyphenationLang : undefined,
+        post: async (fr) => {
+          await applyTransforms(fr, this.transformOptions());
+          const css = cssSettings.get();
+          const zh = /^(zh|ja|ko)/i.test(this.book.metadata.language ?? '');
+          await applyExtras(fr, {
+            section,
+            visited: this.visited,
+            chapterEnd: css.chapterEndPrompt && this.nextLinear(section) !== null ? (zh ? '— 本章结束 —' : '— End of chapter —') : null,
+            footnote: css.footnoteOnBottom && this.book.getFootnote ? (href) => this.footnoteFor(href, section) : null,
+          });
+        },
       });
     } catch (e) {
       f.destroy();
@@ -511,6 +540,7 @@ export class Engine implements ReaderController {
       if (ay !== null) y = snapToLineTop(f.getLines(), ay + 1);
     }
     if (this.mode === 'paged') y = this.clampPagedY(f, y);
+    if (this.dualNow()) await this.ensureSpare(section);
     this.pos = { section, y };
     if (!keepStack) this.pageStack = [];
     this.render();
@@ -556,21 +586,28 @@ export class Engine implements ReaderController {
   }
 
   private renderPaged(cur?: ChapterFrame): void {
+    const dual = this.dualNow();
+    const right = dual && cur ? this.spares.get(this.pos.section) : undefined;
+    const ry = right && cur ? this.rightTop(cur, this.pos.y) : null;
     for (const f of [...this.frames.values(), ...this.spares.values()]) {
       if (f === cur) {
         f.place({ x: 0, y: 0, clipH: this.pageClip(f, this.pos.y), innerTop: this.pos.y, visible: true, z: 1 });
+      } else if (f === right && ry !== null) {
+        f.place({ x: this.rightPageX, y: 0, clipH: this.pageClip(f, ry), innerTop: ry, visible: true, z: 1 });
       } else {
         f.place({ x: 0, y: 0, clipH: this.H, innerTop: 0, visible: false });
       }
     }
   }
 
-  /** 分页窗口的实际可见高度：裁到最后一个算「显示」的行底，下一行露出的那截被盖住，页面上不会出现被腰斩的文字 */
+  /** 双页：右页窗口顶（左页之后的下一页）；本章没有下一页返回 null（右页留白） */
+  rightTop(f: ChapterFrame, y: number): number | null {
+    return nextPageTop(f.getLines(), y, this.H, this.tag(), textSettings.get().keepOneLineWhenPaging);
+  }
+
+  /** 分页窗口的实际可见高度（lines.ts pageClipHeight） */
   pageClip(f: ChapterFrame, y: number): number {
-    const lines = f.getLines();
-    const last = lastShownLine(lines, y, this.H, this.tag());
-    if (last < 0) return this.H;
-    return Math.max(1, Math.min(this.H, Math.ceil(lines[last].bottom - y)));
+    return pageClipHeight(f.getLines(), y, this.H, this.tag());
   }
 
   /** 预载相邻章并清理远处的章 */
@@ -636,20 +673,24 @@ export class Engine implements ReaderController {
   }
 
   getLocation(): ReaderLocation | null {
+    if (!this.live) return null;
     const section = this.pos.section;
     const f = this.frames.get(section);
     if (!f?.loaded) return this.lastLoc;
     const y = Math.max(0, this.pos.y);
     const start = f.offsetAtTop(y);
-    const end = Math.max(start, f.offsetAtBottom(Math.min(y + this.H, f.height)));
+    const dualRy = this.mode === 'paged' && this.dualNow() ? this.rightTop(f, y) : null;
+    const end = Math.max(start, f.offsetAtBottom(Math.min((dualRy ?? y) + this.H, f.height)));
     const total = f.text.total;
     const lines = f.getLines();
     const tag = this.tag();
     const atFirst = section === this.firstLinear() || this.prevLinear(section) === null;
     const hasNext = this.nextLinear(section) !== null;
     let atEnd: boolean;
-    if (this.mode === 'paged') atEnd = !hasNext && nextPageTop(lines, y, this.H, tag) === null;
-    else atEnd = !hasNext && y + this.H >= f.height - 1;
+    if (this.mode === 'paged') {
+      if (this.dualNow()) atEnd = !hasNext && (dualRy === null || nextPageTop(lines, dualRy, this.H, tag) === null);
+      else atEnd = !hasNext && nextPageTop(lines, y, this.H, tag) === null;
+    } else atEnd = !hasNext && y + this.H >= f.height - 1;
     const pages = estimatePages(f.height, this.H);
     const pagesLeft = nextPageTop(lines, y, this.H, tag) === null;
     const page = estimatePage(y, f.height, this.H, pagesLeft && this.mode === 'paged');
@@ -704,6 +745,7 @@ export class Engine implements ReaderController {
     const lines = f.getLines();
     const tag = this.tag();
     const keepOne = textSettings.get().keepOneLineWhenPaging;
+    if (this.dualNow()) return this.dualTarget(dir, from, f);
     if (dir > 0) {
       const top = nextPageTop(lines, from.y, this.H, tag, keepOne);
       if (top !== null) return { section: from.section, y: top };
@@ -719,6 +761,57 @@ export class Engine implements ReaderController {
     if (p === null) return null;
     const pf = await this.ensureFrame(p);
     return { section: p, y: lastPageTop(pf.getLines(), this.H, tag) };
+  }
+
+  /** 双页一次翻两页：向后 = 右页之后的下一页；向前 = 回退两页（优先弹历史栈） */
+  private async dualTarget(dir: 1 | -1, from: Pos, f: ChapterFrame): Promise<TurnTarget | null> {
+    const lines = f.getLines();
+    const tag = this.tag();
+    const keepOne = textSettings.get().keepOneLineWhenPaging;
+    if (dir > 0) {
+      const r = nextPageTop(lines, from.y, this.H, tag, keepOne);
+      const n = r === null ? null : nextPageTop(lines, r, this.H, tag, keepOne);
+      if (n !== null) return { section: from.section, y: n };
+      const nx = this.nextLinear(from.section);
+      return nx === null ? null : { section: nx, y: 0 };
+    }
+    const hist = this.pageStack[this.pageStack.length - 1];
+    if (hist && hist.to.section === from.section && Math.abs(hist.to.y - from.y) < 1) return { ...hist.from };
+    const p1 = prevPageTop(lines, from.y, this.H, tag);
+    if (p1 !== null) return { section: from.section, y: prevPageTop(lines, p1, this.H, tag) ?? p1 };
+    const p = this.prevLinear(from.section);
+    if (p === null) return null;
+    const pl = (await this.ensureFrame(p)).getLines();
+    const last = lastPageTop(pl, this.H, tag);
+    return { section: p, y: prevPageTop(pl, last, this.H, tag) ?? last };
+  }
+
+  /** 双页一屏（左页 + 右页）的窗口表，供栅格化 */
+  private async spreadWindows(pos: Pos) {
+    const f = await this.ensureFrame(pos.section);
+    const sp = await this.ensureSpare(pos.section);
+    const ry = this.rightTop(f, pos.y);
+    const wins = [{ frame: f, y: pos.y, clipH: this.pageClip(f, pos.y), left: this.inset.l, top: this.inset.t, width: this.W }];
+    if (ry !== null) wins.push({ frame: sp, y: ry, clipH: this.pageClip(sp, ry), left: this.inset.l + this.rightPageX, top: this.inset.t, width: this.W });
+    return wins;
+  }
+
+  /** 双页翻页动画：两屏整屏纹理 + 纹理翻页 */
+  async dualFlip(anim: number, dir: 1 | -1, from: Pos, target: TurnTarget, click: boolean): Promise<FlipPlan | null> {
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const bg = this.root!.style.background || this.root!.style.backgroundColor;
+    const box = { w: this.boxW, h: this.boxH };
+    let texA: HTMLCanvasElement;
+    let texB: HTMLCanvasElement;
+    try {
+      [texA, texB] = await Promise.all([
+        this.spreadWindows(from).then((windows) => rasterizeSpread({ box, background: bg, dpr, windows })),
+        this.spreadWindows(target).then((windows) => rasterizeSpread({ box, background: bg, dpr, windows })),
+      ]);
+    } catch {
+      return null; // 栅格化失败：调用方直接无动画翻页
+    }
+    return textureFlip({ root: this.root!, boxW: this.boxW, boxH: this.boxH }, anim, dir, texA, texB, click);
   }
 
   /** 提交一次翻页（动画结束后或无动画时） */
@@ -752,6 +845,7 @@ export class Engine implements ReaderController {
         const ok = await this.animator.run(dir, from, target, anim);
         if (ok) return true;
       }
+      if (this.dualNow()) await this.ensureSpare(target.section);
       this.commit(target, dir, from);
       return true;
     } finally {
@@ -760,13 +854,16 @@ export class Engine implements ReaderController {
   }
 
   next(): Promise<void> {
+    if (!this.live) return Promise.resolve();
     return this.mode === 'scroll' ? this.turn(1, { instant: true }).then(() => undefined) : this.turn(1).then(() => undefined);
   }
   prev(): Promise<void> {
+    if (!this.live) return Promise.resolve();
     return this.mode === 'scroll' ? this.turn(-1, { instant: true }).then(() => undefined) : this.turn(-1).then(() => undefined);
   }
 
   async nextSection(): Promise<void> {
+    if (!this.live) return;
     const n = this.nextLinear(this.pos.section);
     if (n === null) {
       this.emit('endOfBook', undefined);
@@ -776,6 +873,7 @@ export class Engine implements ReaderController {
   }
 
   async prevSection(): Promise<void> {
+    if (!this.live) return;
     const p = this.prevLinear(this.pos.section);
     if (p === null) return;
     await this.showAt({ section: p, y: 0 });
@@ -831,6 +929,7 @@ export class Engine implements ReaderController {
 
   // ───────────── goTo ─────────────
   async goTo(target: GoToTarget): Promise<void> {
+    if (!this.live) return;
     this.animator.cancel();
     if ('href' in target) {
       const r = this.book.resolveHref(target.href, target.fromSection ?? this.pos.section);
@@ -866,6 +965,14 @@ export class Engine implements ReaderController {
   }
 
   async getSectionTextWithBreaks(section: number): Promise<{ text: string; breaks: number[] }> {
+    try {
+      return await this.sectionTextWithBreaks(section);
+    } catch {
+      return { text: '', breaks: [] }; // 章节不存在 / 书已释放：查询类方法不抛错
+    }
+  }
+
+  private async sectionTextWithBreaks(section: number): Promise<{ text: string; breaks: number[] }> {
     const have = this.textCache.get(section);
     if (have) return have;
     const loaded = this.frames.get(section);
@@ -892,27 +999,27 @@ export class Engine implements ReaderController {
     this.decorations.set(layer, decorations);
   }
   getRangeRects(range: TextRange): DOMRect[] {
-    return this.decorations.rects(range);
+    return this.live ? this.decorations.rects(range) : [];
   }
   isRangeVisible(range: TextRange): boolean {
-    return this.decorations.isVisible(range);
+    return this.live ? this.decorations.isVisible(range) : false;
   }
   getSelection(): ReaderSelection | null {
-    return this.selection.get();
+    return this.live ? this.selection.get() : null;
   }
   setSelection(range: TextRange | null): void {
-    this.selection.set(range);
+    if (this.live) this.selection.set(range);
   }
 
   // ───────────── 自动滚屏 ─────────────
   startAutoScroll(): void {
-    this.autoscroll.start();
+    if (this.live) this.autoscroll.start();
   }
   stopAutoScroll(): void {
     this.autoscroll.stop();
   }
   isAutoScrolling(): boolean {
-    return this.autoscroll.running;
+    return this.live && this.autoscroll.running;
   }
 
   /** 设置仅本书生效的名字替换规则（reader/ui 的「名字替换」对话框用），随后重排 */
@@ -937,6 +1044,8 @@ export class Engine implements ReaderController {
     const href = a.getAttribute('href') ?? '';
     const rect = this.viewportRect(f, a);
     if (!href) return;
+    this.visited.add(`${f.section}|${href}`);
+    a.classList.add('mr-visited');
     const target = this.book.resolveHref(href, f.section);
     if (!target) {
       this.emit('link', { href, internal: false, rect });
@@ -953,6 +1062,12 @@ export class Engine implements ReaderController {
     }
     await this.showAt({ section: target.section, anchor: target.anchor });
     this.emit('link', { href, internal: true, rect });
+  }
+
+  /** 页底注解用：该链接指向书内注解时取注解 HTML */
+  private async footnoteFor(href: string, section: number): Promise<string | null> {
+    if (!href || !this.book.resolveHref(href, section)) return null;
+    return (await this.book.getFootnote?.(href, section)) ?? null;
   }
 
   openImage(f: ChapterFrame, img: Element): void {

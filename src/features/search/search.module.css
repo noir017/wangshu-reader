@@ -1,4 +1,4 @@
-.screen { position: fixed; inset: 0; z-index: 1000; background: var(--mr-surface); color: var(--mr-fg); display: flex; flex-direction: column; animation: fade 0.12s ease-out; }
+.screen { position: fixed; inset: 0; z-index: 960; background: var(--mr-surface); color: var(--mr-fg); display: flex; flex-direction: column; animation: fade 0.12s ease-out; }
 .top { display: flex; align-items: center; gap: 4px; padding: 6px 6px 6px 10px; border-bottom: 1px solid var(--mr-border); flex: none; }
 .title { font-size: 17px; font-weight: 600; flex: 1; }
 .inputRow { display: flex; align-items: center; gap: 6px; padding: 8px 10px 4px; flex: none; }

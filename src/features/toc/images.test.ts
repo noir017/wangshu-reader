@@ -24,6 +24,15 @@ describe('图片索引', () => {
     expect(progress).toEqual([1, 2, 3]);
     expect(await scanBookImages(b)).toBe(list);
   });
+  it('某个调用方中途放弃（面板关闭/StrictMode 重挂载）不影响后来的调用方拿到完整结果', async () => {
+    const b = book(['<img src="x">', '<img src="y">']);
+    const ac = new AbortController();
+    const first = scanBookImages(b, { signal: ac.signal });
+    ac.abort();
+    await expect(first).rejects.toThrow();
+    const second = await scanBookImages(b, { signal: new AbortController().signal });
+    expect(second.map((i) => i.src)).toEqual(['x', 'y']);
+  });
   it('是否有图', async () => {
     expect(await bookHasImages(book(['<p>a</p>', '<img src="x">']))).toBe(true);
     expect(await bookHasImages(book(['<p>a</p>']))).toBe(false);

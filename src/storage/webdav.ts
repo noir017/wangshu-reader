@@ -83,8 +83,10 @@ export class DavClient {
     const dirPath = normPath(path);
     const list = await this.propfind(dirPath, 1);
     if (!list) return [];
-    // 第一项通常是目录自身，剔除
-    return list.filter((e) => normPath(e.path) !== dirPath);
+    // 目录自身也在结果里；href 常带挂载前缀（/dav/…），所以按「以目录路径结尾的最短一项」剔除，而不是比较全等
+    const selfCandidates = list.filter((e) => e.dir && (dirPath === '/' || normPath(e.path).endsWith(dirPath)));
+    const self = selfCandidates.sort((a, b) => a.path.length - b.path.length)[0];
+    return list.filter((e) => e !== self);
   }
 
   async get(path: string, init?: DavRequestInit): Promise<Blob | null> {

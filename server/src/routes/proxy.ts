@@ -68,25 +68,55 @@ const inCidr = (n: number, base: string, bits: number): boolean => {
   return (n & mask) >>> 0 === (b & mask) >>> 0;
 };
 
-/** 返回禁止访问的原因，允许则返回 null */
+function blockV4(n: number, policy: Pick<ProxyConfig, 'blockPrivate'>): string | null {
+  if (inCidr(n, '169.254.0.0', 16) || n === ipv4ToInt('100.100.100.200')) return '链路本地/云元数据地址';
+  if (inCidr(n, '0.0.0.0', 8) || n >= 0xe0000000) return '无效或组播地址';
+  if (policy.blockPrivate && (inCidr(n, '127.0.0.0', 8) || inCidr(n, '10.0.0.0', 8) || inCidr(n, '172.16.0.0', 12) || inCidr(n, '192.168.0.0', 16) || inCidr(n, '100.64.0.0', 10))) return '内网地址';
+  return null;
+}
+
+/** IPv6 文本 → 16 字节（含 ::、尾部点分 IPv4、zone id）；不是合法 IPv6 返回 null */
+export function ipv6Bytes(ip: string): number[] | null {
+  let s = ip.split('%')[0].toLowerCase();
+  if (!net.isIPv6(s)) return null;
+  const tail4 = /^(.*:)(\d+\.\d+\.\d+\.\d+)$/.exec(s);
+  if (tail4) {
+    const v4 = ipv4ToInt(tail4[2]);
+    if (v4 === null) return null;
+    s = `${tail4[1]}${(v4 >>> 16).toString(16)}:${(v4 & 0xffff).toString(16)}`;
+  }
+  const [head, rest] = s.split('::');
+  const h = head ? head.split(':') : [];
+  const t = rest === undefined ? [] : rest ? rest.split(':') : [];
+  if (rest === undefined && h.length !== 8) return null;
+  const groups = [...h, ...Array<string>(rest === undefined ? 0 : 8 - h.length - t.length).fill('0'), ...t].map((g) => parseInt(g, 16));
+  if (groups.length !== 8 || groups.some((g) => !Number.isInteger(g))) return null;
+  return groups.flatMap((g) => [g >> 8, g & 0xff]);
+}
+
+/**
+ * 返回禁止访问的原因，允许则返回 null。
+ * URL 解析器会把 [::ffff:169.254.169.254] 规范成十六进制的 [::ffff:a9fe:a9fe]，所以 IPv6 必须按字节解析，
+ * 并把 IPv4 映射/兼容、NAT64、6to4 里内嵌的 IPv4 拿出来按 IPv4 规则判断。
+ */
 export function blockReason(ip: string, policy: Pick<ProxyConfig, 'blockPrivate'>): string | null {
-  let addr = ip.toLowerCase();
-  const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(addr);
-  if (mapped) addr = mapped[1];
-  if (net.isIPv4(addr)) {
-    const n = ipv4ToInt(addr)!;
-    if (inCidr(n, '169.254.0.0', 16) || addr === '100.100.100.200') return '链路本地/云元数据地址';
-    if (inCidr(n, '0.0.0.0', 8) || n >= 0xe0000000) return '无效或组播地址';
-    if (policy.blockPrivate && (inCidr(n, '127.0.0.0', 8) || inCidr(n, '10.0.0.0', 8) || inCidr(n, '172.16.0.0', 12) || inCidr(n, '192.168.0.0', 16) || inCidr(n, '100.64.0.0', 10))) return '内网地址';
-    return null;
-  }
-  if (net.isIPv6(addr)) {
-    if (/^fe[89ab]/.test(addr) || addr === 'fd00:ec2::254') return '链路本地/云元数据地址';
-    if (addr === '::') return '无效地址';
-    if (policy.blockPrivate && (addr === '::1' || /^f[cd]/.test(addr))) return '内网地址';
-    return null;
-  }
-  return '无法识别的地址';
+  const addr = ip.toLowerCase().replace(/^\[|\]$/g, '');
+  if (net.isIPv4(addr)) return blockV4(ipv4ToInt(addr)!, policy);
+  const b = ipv6Bytes(addr);
+  if (!b) return '无法识别的地址';
+  const zeros = (from: number, to: number) => b.slice(from, to).every((x) => x === 0);
+  const v4At = (i: number) => ((b[i] << 24) | (b[i + 1] << 16) | (b[i + 2] << 8) | b[i + 3]) >>> 0;
+  if (zeros(0, 16)) return '无效地址';
+  if (zeros(0, 15) && b[15] === 1) return policy.blockPrivate ? '内网地址' : null;
+  if (zeros(0, 10) && b[10] === 0xff && b[11] === 0xff) return blockV4(v4At(12), policy); // ::ffff:a.b.c.d
+  if (zeros(0, 12)) return blockV4(v4At(12), policy); // ::a.b.c.d（已废弃的 IPv4 兼容地址）
+  if (b[0] === 0 && b[1] === 0x64 && b[2] === 0xff && b[3] === 0x9b && zeros(4, 12)) return blockV4(v4At(12), policy); // NAT64
+  if (b[0] === 0x20 && b[1] === 0x02) return blockV4(v4At(2), policy); // 6to4
+  if (b[0] === 0xff) return '无效或组播地址';
+  if (b[0] === 0xfe && (b[1] & 0xc0) === 0x80) return '链路本地/云元数据地址';
+  if (b[0] === 0xfd && b[1] === 0x00 && b[2] === 0x0e && b[3] === 0xc2 && zeros(4, 15) && b[15] === 0x54) return '链路本地/云元数据地址'; // AWS fd00:ec2::254
+  if (policy.blockPrivate && ((b[0] & 0xfe) === 0xfc || (b[0] === 0xfe && (b[1] & 0xc0) === 0xc0))) return '内网地址';
+  return null;
 }
 
 export function hostAllowed(host: string, allow: string[]): boolean {
@@ -272,17 +302,19 @@ export const route: RouteModule = {
       headers['accept-encoding'] = 'identity';
       if (!headers.accept) headers.accept = '*/*';
 
-      // 请求体：有长度的小请求缓冲下来（才能在 307/308 时重放），大的/分块的流式转发
+      // 请求体：已知且不大的缓冲下来（才能在 307/308 时重放），其余（分块、大文件、长度未知）流式转发
       let body: Buffer | Readable | null = null;
       const cl = c.req.header('Content-Length');
-      const chunked = !!c.req.header('Transfer-Encoding');
-      if (method !== 'GET' && method !== 'HEAD' && c.req.raw.body && (chunked || (cl !== undefined && Number(cl) > 0))) {
-        if (cl !== undefined && Number(cl) <= 8 * 1024 * 1024 && !chunked) body = Buffer.from(await c.req.arrayBuffer());
-        else {
+      if (method !== 'GET' && method !== 'HEAD' && c.req.raw.body && cl !== '0') {
+        // 真实 HTTP/1.1 请求要么有 Content-Length 要么是分块；两者都没有只会出现在进程内构造的 Request（测试），直接缓冲
+        const chunked = !!c.req.header('Transfer-Encoding');
+        if (!chunked && (cl === undefined || Number(cl) <= 8 * 1024 * 1024)) {
+          body = Buffer.from(await c.req.arrayBuffer());
+          headers['content-length'] = String(body.length);
+        } else {
           body = Readable.fromWeb(c.req.raw.body as never);
           if (cl !== undefined) headers['content-length'] = cl;
         }
-        if (Buffer.isBuffer(body)) headers['content-length'] = String(body.length);
       } else if (!['GET', 'HEAD', 'DELETE', 'OPTIONS'].includes(method)) {
         headers['content-length'] = '0';
       }

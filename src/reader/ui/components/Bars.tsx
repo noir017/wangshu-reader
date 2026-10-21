@@ -22,9 +22,11 @@ export function barTitle(rec: { fileName: string; title: string; authors: string
 export function TopBar() {
   const host = useHost();
   const menu = useReaderUi((x) => x.menu);
+  const hideTop = useReaderUi((x) => x.hideTop);
   const rec = useReaderUi((x) => x.session?.record);
+  const show = menu && !hideTop;
   return (
-    <div className={s.top} data-show={menu} inert={!menu}>
+    <div className={s.top} data-show={show} inert={!show}>
       <button type="button" className={s.barBtn} style={{ color: '#fff' }} aria-label={t('back')} onClick={() => host.backToShelf()}>
         <ArrowLeft size={22} />
       </button>
@@ -60,7 +62,7 @@ export function BottomBar() {
   return (
     <div className={s.bottom} data-show={menu} inert={!menu}>
       <div className={s.seekRow}>
-        <button type="button" className={s.barBtn} aria-label={t('prior_chapter')} onClick={() => void stepChapter(-1)}>
+        <button type="button" className={s.barBtn} aria-label={t('prior_chapter')} onClick={() => stepFromBar(-1)}>
           <ChevronLeft size={22} />
         </button>
         <input
@@ -109,13 +111,19 @@ export function BottomBar() {
         <button type="button" className={s.barBtn} aria-label={t('link_back')} disabled={!canBack} onClick={() => void goLinkBack()}>
           <Undo2 size={20} />
         </button>
-        <button type="button" className={s.barBtn} aria-label={t('next_chapter')} onClick={() => void stepChapter(1)}>
+        <button type="button" className={s.barBtn} aria-label={t('next_chapter')} onClick={() => stepFromBar(1)}>
           <ChevronRight size={22} />
         </button>
       </div>
       <ToolRow />
     </div>
   );
+}
+
+/** 底栏 ◀/▶：收起顶栏、保留底栏（底栏上的 ↩ 随之可用）再换章 */
+function stepFromBar(dir: 1 | -1): void {
+  useReaderUi.getState().setHideTop(true);
+  void stepChapter(dir);
 }
 
 /** 进度条值 0..1000：>0 取整为 0 时取 1，末页强制 1000（STATUS-005） */

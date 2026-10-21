@@ -70,4 +70,14 @@ describe('webdav', () => {
     await dav.delete('/d/a.txt');
     expect(await dav.exists('/d/a.txt')).toBe(false);
   });
+
+  it('href 带挂载前缀（/dav/…）时 list 也能剔除目录自身，且不误伤同名子目录', async () => {
+    const xml = MS(item('/dav/a/', true) + item('/dav/a/a/', true) + item('/dav/a/x.txt', false, 3));
+    const tx: DavTransport = async () => new Response(xml, { status: 207 });
+    const l = await new DavClient(tx).list('/a');
+    expect(l.map((e) => e.name)).toEqual(['a', 'x.txt']);
+    const root = MS(item('/dav/', true) + item('/dav/Apps/', true));
+    const l2 = await new DavClient(async () => new Response(root, { status: 207 })).list('/');
+    expect(l2.map((e) => e.name)).toEqual(['Apps']);
+  });
 });

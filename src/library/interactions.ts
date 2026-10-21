@@ -11,8 +11,12 @@ export function useLongPress(opts: { onClick: (e: React.PointerEvent | React.Mou
   };
   return {
     onPointerDown: (e: React.PointerEvent) => {
-      if (e.button !== 0 && e.pointerType === 'mouse') return;
       const st = state.current;
+      // 右键只靠 contextmenu 事件触发长按；这里要先清掉上一次留下的 fired，否则同一个条目第二次右键没反应
+      if (e.button !== 0 && e.pointerType === 'mouse') {
+        st.fired = false;
+        return;
+      }
       st.x = e.clientX;
       st.y = e.clientY;
       st.fired = false;

@@ -15,6 +15,7 @@ import { tt } from './messages';
 import { tocSettings } from './settings';
 import { ancestorKeys, cleanChapterTitle, currentTocIndex, effectiveToc, flattenToc, visibleRows, type FlatToc } from './toc-utils';
 import type { AnnotFilter } from '../annotations/model';
+import { peekLocation } from '../common/safe';
 
 export type TocTab = 'toc' | 'bookmarks' | 'images';
 
@@ -128,7 +129,7 @@ function TocTree({ session, reversed, onClose }: { session: ReaderSession; rever
   const toc = useMemo(() => effectiveToc(book), [book]);
   const flat = useMemo(() => flattenToc(toc), [toc]);
   const total = flat.length;
-  const loc = controller.getLocation();
+  const loc = peekLocation(controller);
   const cur = useMemo(
     () => (loc ? currentTocIndex(flat, { section: loc.locator.section, offset: loc.locator.offset }, anchorOffsets(flat, loc.locator.section), loc.sectionTitle) : -1),
     [flat, loc],

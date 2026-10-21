@@ -189,7 +189,7 @@ export async function openUmd(file: Blob, opts: OpenOptions): Promise<Reflowable
     if (e instanceof BookOpenError) throw e;
     throw corrupt(e);
   }
-  const text = info.text.replace(/ /g, '\n').replace(/\r\n?/g, '\n');
+  const text = info.text.replace(/\u2029/g, '\n').replace(/\r\n?/g, '\n');
   const meta = metaOf(info, opts.fileName);
   const lang = languageOf(text);
   if (lang) meta.language = lang;

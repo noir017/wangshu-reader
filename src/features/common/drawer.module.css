@@ -1,7 +1,8 @@
 .backdrop {
   position: fixed;
   inset: 0;
-  z-index: 1000;
+  /* 低于 ui 的弹层/菜单（1000）：抽屉里再弹菜单、确认框时，它们必须在抽屉上面 */
+  z-index: 950;
   background: rgb(0 0 0 / 0.4);
   display: flex;
   animation: fade 0.15s ease-out;

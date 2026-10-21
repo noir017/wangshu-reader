@@ -215,7 +215,7 @@ export function createInputHandlers(deps: InputDeps) {
     }
   }
 
-  return { tap, longPress, swipe, verticalDrag, pinch, key, link, onAutoScroll: (e: ReaderEvents['autoScroll']) => onEngineAutoScroll(e.running), speed: changeSpeed };
+  return { tap, longPress, swipe, verticalDrag, pinch, key, link, onAutoScroll: (e: ReaderEvents['autoScroll']) => onEngineAutoScroll(e.running, e.speed), speed: changeSpeed };
 }
 
 export type InputHandlers = ReturnType<typeof createInputHandlers>;

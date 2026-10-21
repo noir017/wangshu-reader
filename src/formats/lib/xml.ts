@@ -6,9 +6,13 @@ export function localName(el: Element): string {
   return n.slice(n.lastIndexOf(':') + 1).toLowerCase();
 }
 
-/** 解析 XML。常见的小毛病（未转义的 &、实体）自动修复一次；仍失败则退到 HTML 解析器（标签名小写） */
+/**
+ * 解析 XML。文本已经按声明的编码解码过，所以先去掉 XML 声明（同时去掉它前面的 BOM/空白——浏览器对「声明前有空白」是致命错误；
+ * 单引号声明 <?xml version='1.0'?> 在 happy-dom 里也会解析失败）。常见的小毛病（未转义的 &、实体）自动修复一次；
+ * 仍失败则退到 HTML 解析器（标签名小写；先把 <x/> 展开成 <x></x>，否则 <item/> 会在 HTML 里互相嵌套）。
+ */
 export function parseXml(text: string): Document {
-  const src = text.replace(/^﻿/, '');
+  const src = text.replace(/^[\s\uFEFF]*(?:<\?xml\b[^>]*\?>)?/i, '');
   const tryParse = (s: string): Document | null => {
     const doc = new DOMParser().parseFromString(s, 'application/xml');
     return doc.getElementsByTagName('parsererror').length || !doc.documentElement ? null : doc;
@@ -18,7 +22,8 @@ export function parseXml(text: string): Document {
   const fixed = src.replace(/&(?!(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-f]+);)/gi, '&amp;');
   const doc2 = fixed === src ? null : tryParse(fixed);
   if (doc2) return doc2;
-  return new DOMParser().parseFromString(src, 'text/html');
+  const exploded = src.replace(/<([a-zA-Z][\w:.-]*)((?:\s(?:[^<>"']|"[^"]*"|'[^']*')*?)?)\s*\/>/g, '<$1$2></$1>');
+  return new DOMParser().parseFromString(exploded, 'text/html');
 }
 
 /** 全部后代元素中本地名为 name 的（name 小写） */

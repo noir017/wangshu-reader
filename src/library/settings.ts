@@ -50,6 +50,9 @@ export const shelfSettings = defineSettings('library.shelf', {
   importFileSize: 20,
   importTypes: ['epub', 'pdf', 'fb2', 'mobi', 'chm', 'docx', 'html', 'txt', 'cbz'] as string[],
   scanFav: '',
+  /** 自动导入已链接目录里的新书（LIB-024，仅 Chromium） */
+  autoImport: false,
+  autoImportTime: 0,
   fileImportWithFav: true,
   // 封面
   coverSearchEngine: 'openlibrary' as 'openlibrary' | 'googlebooks',

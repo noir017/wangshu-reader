@@ -2,26 +2,56 @@
 // 内部按格式拆成独立解析器（FormatParser），在 PARSERS 里注册；新增格式只需加一个文件并登记。
 import type { Book, BookProbe, FormatParser, OpenOptions } from '@/core/book';
 import { UnsupportedFormatError, fmtMsg } from './errors';
-import { readHead } from './lib/bytes';
+import { make7zParser, makeRarParser, makeZipParser } from './archive';
+import { cbzParser } from './cbz';
+import { docxParser } from './docx';
 import { epubParser } from './epub';
+import { fb2Parser } from './fb2';
+import { htmlParser } from './html';
+import { readHead, startsWithAscii } from './lib/bytes';
+import { candidateExts } from './lib/names';
+import { markdownParser } from './markdown';
+import { mobiParser } from './mobi';
+import { odtParser } from './odt';
+import { pdfParser } from './pdf';
+import { rtfParser } from './rtf';
+import { cb7Parser, cbrParser, chmParser, djvuParser } from './server-formats';
 import { txtParser } from './txt';
+import { umdParser } from './umd';
 
 export * from './errors';
 export { countWords, extractIsbn, metaFromFileName } from './lib/text';
 export { TEXT_ENCODINGS, detectEncoding, normalizeEncoding } from './encoding';
 export { txtSettings, htmlSettings } from './settings';
 
-/** 注册表。顺序即嗅探优先级（具体格式在前，兜底的 TXT 在最后） */
-const PARSERS: FormatParser[] = [epubParser, txtParser];
+const getParsers = () => PARSERS;
 
-/** 文件名里的候选扩展名，长的在前：a.fb2.zip → ['fb2.zip', 'zip'] */
-function candidateExts(fileName: string): string[] {
-  const base = (fileName.split('?').pop() ?? fileName).split(/[\\/]/).pop()!.toLowerCase();
-  const parts = base.split('.');
-  const out: string[] = [];
-  for (let i = 1; i < parts.length; i++) out.push(parts.slice(i).join('.'));
-  return out.slice(0, 2);
-}
+// 靠文件头认出 ODT：zip 第一个条目是 mimetype，内容 application/vnd.oasis.opendocument.text
+const odtSniff: FormatParser['sniff'] = (head) => startsWithAscii(head, 'PK') && new TextDecoder('latin1').decode(head.subarray(30, 120)).includes('application/vnd.oasis.opendocument.text');
+const docxSniff: FormatParser['sniff'] = (head) => startsWithAscii(head, 'PK') && new TextDecoder('latin1').decode(head.subarray(0, 4096)).includes('word/');
+
+/** 注册表。顺序即嗅探优先级（具体格式在前，通用的 zip 与兜底的 TXT 在最后） */
+const PARSERS: FormatParser[] = [
+  epubParser,
+  pdfParser,
+  fb2Parser,
+  umdParser,
+  mobiParser,
+  rtfParser,
+  { ...odtParser, sniff: odtSniff },
+  { ...docxParser, sniff: docxSniff },
+  cbzParser,
+  chmParser,
+  cbrParser,
+  cb7Parser,
+  djvuParser,
+  makeZipParser(getParsers),
+  makeRarParser(getParsers),
+  make7zParser(getParsers),
+  markdownParser,
+  htmlParser,
+  txtParser,
+];
 
 /** 文件头看起来是文本（没有二进制控制字符） */
 function looksLikeText(head: Uint8Array): boolean {

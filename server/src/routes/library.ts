@@ -4,9 +4,9 @@ import busboy from 'busboy';
 import type { Context } from 'hono';
 import { createHash, randomBytes } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
-import { mkdir, readFile, rename, rm, stat, unlink, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, readFile, rename, rm, stat, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { Readable, Transform } from 'node:stream';
+import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import type { RouteModule } from '../index';
 import { extractEntryStream, require7z } from '../lib/archive';
@@ -15,7 +15,6 @@ import { copyTree, isInside, movePath, realInside, TMP_SUFFIX, uniqueName } from
 import { SAFE_HEADERS, serveFile } from '../lib/serve-file';
 import { extractCover, makeThumbnail, type CoverImage } from '../lib/thumb';
 import { contentDisposition, extOf, httpError, mimeOf, sanitizeFileName } from '../util/http';
-import { find7z } from '../util/exec';
 
 const MAX_UPLOAD_FILES = 1000;
 
@@ -118,6 +117,8 @@ export const route: RouteModule = {
       require7z();
       const listing = await l.archiveListing(r);
       const entry = l.findArchiveEntry(listing, r.inner);
+      // 很多压缩包没有单独的目录条目，目录只体现在子条目的路径前缀里
+      if (!entry && r.inner && listing.entries.some((e) => e.path.startsWith(`${r.inner}/`))) throw httpError(400, '是目录，不是文件');
       if (!entry || entry.symlink) throw httpError(404, '压缩包内没有这个条目');
       if (entry.dir) throw httpError(400, '是目录，不是文件');
       if (entry.encrypted) throw httpError(422, '该条目已加密');
@@ -131,8 +132,8 @@ export const route: RouteModule = {
         ...SAFE_HEADERS,
       };
       if (c.req.method === 'HEAD') return new Response(null, { status: 200, headers });
-      const proc = extractEntryStream(r.file.real, entry, listing.codepage);
-      return new Response(Readable.toWeb(proc.stream) as ReadableStream, { status: 200, headers });
+      const stream = await extractEntryStream(r.file.real, entry, listing.codepage);
+      return new Response(Readable.toWeb(stream) as ReadableStream, { status: 200, headers });
     });
 
     // ── 封面缩略图 ──
@@ -193,13 +194,13 @@ export const route: RouteModule = {
         const ast = await stat(r.file.real);
         key = `${r.file.real}\0${ast.mtimeMs}\0${ast.size}\0${entry.path}\0${size}`;
         produce = async () => {
-          const proc = extractEntryStream(r.file.real, entry, listing.codepage);
+          const stream = await extractEntryStream(r.file.real, entry, listing.codepage);
           const chunks: Buffer[] = [];
           let n = 0;
-          for await (const ch of proc.stream) {
+          for await (const ch of stream) {
             n += (ch as Buffer).length;
             if (n > 32 * 1024 * 1024) {
-              proc.stream.destroy();
+              stream.destroy();
               return null;
             }
             chunks.push(ch as Buffer);
@@ -221,7 +222,7 @@ export const route: RouteModule = {
               const raw = await produce();
               cover = raw ? await makeThumbnail(raw, size) : null;
             } catch (e) {
-              console.warn(`[library] 取封面失败 ${l.vpath(roots[0], [])}:`, (e as Error).message);
+              console.warn(`[library] 取封面失败 ${c.req.query('path')}:`, (e as Error).message);
             }
             await writeThumbCache(file, cover);
             return cover;
@@ -292,7 +293,8 @@ export const route: RouteModule = {
       });
       bb.on('error', (e) => (failure ??= e as Error));
       const done = new Promise<void>((resolve) => bb.on('close', resolve));
-      Readable.fromWeb(c.req.raw.body as never).pipe(bb);
+      // 客户端中途断开时请求体流会报错：必须有人接住，否则是未处理的 error 事件（会让进程崩溃），pipeline 同时负责销毁 bb 让 done 结束
+      pipeline(Readable.fromWeb(c.req.raw.body as never), bb).catch((e) => (failure ??= e as Error));
       await done;
       await Promise.all(pending);
       await chain.catch(() => undefined);
@@ -384,14 +386,7 @@ export const route: RouteModule = {
       for (const it of items) await rm(it.abs, { recursive: true, force: true });
       return c.json({ ok: true });
     });
-
-    void find7z;
   },
 };
 
-async function exists(p: string): Promise<boolean> {
-  const { lstat } = await import('node:fs/promises');
-  return lstat(p).then(() => true, () => false);
-}
-
-void Transform;
+const exists = (p: string): Promise<boolean> => lstat(p).then(() => true, () => false);

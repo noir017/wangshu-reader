@@ -7,7 +7,8 @@ import { HLALL_PREFIX, hlAllDecorations, loadHlAll, useHlAll } from './highlight
 import { annotationIdOfDecoration, relocate, toDecorations } from './model';
 import { startAnnotationSync, useAnnotations } from './store';
 import { openAnnotationPopup } from './AnnotationPopup';
-import { rememberSectionDoc } from '../common/section-docs';
+import { clearSectionDocs, rememberSectionDoc } from '../common/section-docs';
+import { peekLocation } from '../common/safe';
 
 export function AnnotationLayer() {
   const session = useReaderSession();
@@ -26,7 +27,13 @@ export function AnnotationLayer() {
     void loadHlAll(bookId);
     return () => {
       stop();
-      controller.setDecorations('annotations', []);
+      try {
+        controller.setDecorations('annotations', []);
+      } catch {
+        /* 引擎已销毁/尚未打开 */
+      }
+      // 章节文档按会话缓存：换书/卸载时清掉，免得点选取词反查到上一本书的文档
+      clearSectionDocs();
     };
   }, [bookId, controller]);
 
@@ -63,16 +70,26 @@ export function AnnotationLayer() {
     [controller, verify],
   );
 
+  // 装饰没画上（引擎 open() 之前 setDecorations 可能抛错）：等引擎就绪的第一个事件再补画一次
+  const pending = useRef(false);
+  const retryIfPending = () => {
+    if (pending.current) setVersion((v) => v + 1);
+  };
+
   useControllerEvent('sectionReady', ({ section, doc }) => {
     rememberSectionDoc(section, doc);
     verify(section, primeSectionText(controller, section, doc));
     if (useHlAll.getState().items.length) setVersion((v) => v + 1);
+    retryIfPending();
   });
-  useControllerEvent('relocate', (loc) => void verifySection(loc.section));
+  useControllerEvent('relocate', (loc) => {
+    void verifySection(loc.section);
+    retryIfPending();
+  });
 
   // 标注列表变化后，先校验当前章（引擎早于本组件挂载时错过的 sectionReady 在这里补上）
   useEffect(() => {
-    const loc = controller.getLocation();
+    const loc = peekLocation(controller);
     if (loc) void verifySection(loc.section);
   }, [items, controller, verifySection]);
 
@@ -85,7 +102,12 @@ export function AnnotationLayer() {
         if (t) extra.push(...hlAllDecorations(s, t, hlAll));
       }
     }
-    controller.setDecorations('annotations', [...extra, ...base]);
+    try {
+      controller.setDecorations('annotations', [...extra, ...base]);
+      pending.current = false;
+    } catch {
+      pending.current = true;
+    }
   }, [items, hlAll, version, controller]);
 
   useControllerEvent('decorationClick', ({ layer, id, rect }) => {
