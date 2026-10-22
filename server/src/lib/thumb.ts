@@ -64,23 +64,23 @@ async function epubCover(file: string): Promise<CoverImage | null> {
   const find = (p: string) => listing.entries.find((e) => e.path === p);
   const container = find('META-INF/container.xml');
   if (!container) return null;
-  const cxml = (await extractEntryBuffer(file, container, listing.codepage, 1024 * 1024)).toString('utf8');
+  const cxml = (await extractEntryBuffer(file, container, 1024 * 1024)).toString('utf8');
   const opfPath = /full-path\s*=\s*["']([^"']+)["']/i.exec(cxml)?.[1];
   const opfEntry = opfPath ? find(opfPath) : undefined;
   if (!opfPath || !opfEntry) return null;
-  const opf = (await extractEntryBuffer(file, opfEntry, listing.codepage, 8 * 1024 * 1024)).toString('utf8');
+  const opf = (await extractEntryBuffer(file, opfEntry, 8 * 1024 * 1024)).toString('utf8');
   const href = findEpubCoverHref(opf);
   if (!href) return null;
   const img = find(resolveInZip(opfPath, href));
   if (!img || img.dir) return null;
-  return { data: await extractEntryBuffer(file, img, listing.codepage, MAX_COVER_BYTES), mime: mimeOf(img.path) };
+  return { data: await extractEntryBuffer(file, img, MAX_COVER_BYTES), mime: mimeOf(img.path) };
 }
 
 async function archiveCover(file: string): Promise<CoverImage | null> {
   const listing = await listArchive(file);
   const first = firstImageEntry(listing);
   if (!first) return null;
-  return { data: await extractEntryBuffer(file, first, listing.codepage, MAX_COVER_BYTES), mime: mimeOf(first.path) };
+  return { data: await extractEntryBuffer(file, first, MAX_COVER_BYTES), mime: mimeOf(first.path) };
 }
 
 /** FB2：<coverpage><image l:href="#id"/> → <binary id="id">base64</binary> */

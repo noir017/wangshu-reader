@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { writeZip } from '../test-fixtures';
 import { tmp } from '../test-utils';
 import { CommandError, find7z, findCommand, run } from '../util/exec';
-import { assertExtractable, listArchive, normalizeEntryPath, parseSlt } from './archive';
+import { assertExtractable, extractAll, extractEntryBuffer, listArchive, normalizeEntryPath, parseSlt } from './archive';
 import { safeRelPath } from './rar';
 
 describe('7z -slt 输出解析', () => {
@@ -109,5 +109,44 @@ describe.skipIf(!find7z())('zip 写入器 + 列表', () => {
     expect(listing.entries.map((e) => e.path)).toEqual(['mimetype', '中文/文件.txt', 'empty.txt', 'bin.dat']);
     expect(listing.entries.find((e) => e.path === 'bin.dat')?.size).toBe(1000);
     expect(listing.codepage).toBeUndefined(); // UTF-8 标志齐全，不需要换代码页
+  });
+
+  it('无 UTF-8 标志的 GBK 名字：不靠 7z -mcp，同字节数的两个中文名也不撞（列表、取条目、整包解）', async () => {
+    const dir = tmp();
+    const f = path.join(dir, 'gbk.zip');
+    // 先用同字节数的 ASCII 占位名写，再把本地头和中央目录里的名字换成 GBK 字节：中文 = D6D0 CEC4，英文 = D3A2 CEC4
+    await writeZip(f, [
+      { name: 'sub/AAAA.txt', data: '中文内容'.repeat(50), compress: true },
+      { name: 'sub/BBBB.txt', data: 'english', compress: false },
+    ]);
+    const buf = readFileSync(f);
+    for (const [ph, gbk] of [['AAAA', [0xd6, 0xd0, 0xce, 0xc4]], ['BBBB', [0xd3, 0xa2, 0xce, 0xc4]]] as const) {
+      for (let at = buf.indexOf(ph); at >= 0; at = buf.indexOf(ph, at + 1)) Buffer.from(gbk).copy(buf, at);
+    }
+    writeFileSync(f, buf);
+    const listing = await listArchive(f, { cache: false });
+    expect(listing.entries.map((e) => e.path)).toEqual(['sub/中文.txt', 'sub/英文.txt']);
+    expect(listing.codepage).toBe(936);
+    expect((await extractEntryBuffer(f, listing.entries[0])).toString()).toBe('中文内容'.repeat(50));
+    expect((await extractEntryBuffer(f, listing.entries[1])).toString()).toBe('english');
+    const out = path.join(dir, 'x');
+    await extractAll(f, out, listing);
+    expect(readFileSync(path.join(out, 'sub/中文.txt'), 'utf8')).toBe('中文内容'.repeat(50));
+    expect(readFileSync(path.join(out, 'sub/英文.txt'), 'utf8')).toBe('english');
+  });
+
+  it('老 zip 条目解压后超过中央目录声明的大小 → 报错（防伪造大小的压缩炸弹）', async () => {
+    const f = path.join(tmp(), 'bomb.zip');
+    await writeZip(f, [{ name: 'AAAA.txt', data: 'a'.repeat(200_000), compress: true }]);
+    const buf = readFileSync(f);
+    for (let at = buf.indexOf('AAAA'); at >= 0; at = buf.indexOf('AAAA', at + 1)) Buffer.from([0xd6, 0xd0, 0xce, 0xc4]).copy(buf, at);
+    const cdOff = buf.readUInt32LE(buf.length - 22 + 16);
+    buf.writeUInt32LE(10, 22); // 本地头和中央目录里的解压后大小都改成 10（只改一处 7z 会直接拒列）
+    buf.writeUInt32LE(10, cdOff + 24);
+    writeFileSync(f, buf);
+    const listing = await listArchive(f, { cache: false });
+    expect(listing.entries.map((e) => e.path)).toEqual(['中文.txt']);
+    expect(listing.entries[0].zip).toBeDefined(); // 走的是 Node 自己解的路径，不是 7z
+    await expect(extractEntryBuffer(f, listing.entries[0])).rejects.toThrow();
   });
 });
