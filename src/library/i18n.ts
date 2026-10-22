@@ -340,7 +340,6 @@ export const t = defineMessages({
     aboutTitle: '软件说明',
     aboutBody: '望舒：在浏览器里阅读 EPUB、PDF、MOBI、TXT 等电子书，书架、标注、进度可通过 WebDAV 在多设备间同步。',
     aboutVersion: '版本',
-    aboutNote: '致谢：界面与功能参考 Moon+ Reader（静读天下）。',
     aboutFeatures: '主要功能',
     // 文件页
     filesTitle: '我的文件',
@@ -831,7 +830,6 @@ export const t = defineMessages({
     aboutTitle: 'About',
     aboutBody: 'Wangshu Reader: read EPUB, PDF, MOBI, TXT and more in the browser; shelf, annotations and progress sync across devices via WebDAV.',
     aboutVersion: 'Version',
-    aboutNote: 'Thanks to Moon+ Reader, whose interface and features this app is modeled on.',
     aboutFeatures: 'Features',
     filesTitle: 'My Files',
     filesNeedServer: 'The Files page browses the server\'s library folder. The server has no library folder configured (MR_LIBRARY_DIR) or is unreachable.',

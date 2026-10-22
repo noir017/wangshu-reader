@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-# 把容器里生成的文件拉回本地（如 package-lock.json、截图）。路径相对 /work/wangshu-reader。
-# 用法：tools/pull <远端相对路径> [本地目标，默认同名相对路径]
-set -euo pipefail
-here="$(cd "$(dirname "$0")/.." && pwd)"
-src="$1"; dst="${2:-$here/$1}"
-mkdir -p "$(dirname "$dst")"
-exec rsync -az "oraclea2:apps/moonreader-dev/workspace/wangshu-reader/$src" "$dst"
