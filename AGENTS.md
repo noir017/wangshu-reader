@@ -1,10 +1,11 @@
-# moonreader-web 开发约定（所有参与者必读）
+# wangshu-reader 开发约定（所有参与者必读）
 
-复刻 静读天下 Pro 7.3（com.flyersoft.moonreaderp）的 web 版：浏览器端阅读器 + 一个 HTTP 服务端代办浏览器做不到的事。
+望舒（Wangshu Reader）：复刻 静读天下 Pro 7.3（com.flyersoft.moonreaderp）的 web 版，浏览器端阅读器 + 一个 HTTP 服务端代办浏览器做不到的事。
+界面上的产品名一律是「望舒 / Wangshu Reader」，不要写原版品牌「静读天下 / Moon+ Reader」（关于页的致谢、指代原版的功能如「导入原版 Moon+ 数据」除外）。IndexedDB 库名 `moonreader`、`mr.*` 存储键、`MR_*` 环境变量是改名前留下的内部标识，改了会丢数据，保持不动。
 
 ## 环境：一切在 armbox 的 moonreader-dev 容器里跑
-- 源码权威副本在本地 `/home/user/workspace/moonreader-web`，用 Read/Edit/Write 直接改本地文件。
-- **本地不装依赖、不跑 node**。执行命令一律：`tools/rx '<命令>'`（先把源码 rsync 到容器 `/work/moonreader-web`，再在容器里执行）。
+- 源码权威副本在本地仓库（本文件所在目录），用 Read/Edit/Write 直接改本地文件。
+- **本地不装依赖、不跑 node**。执行命令一律：`tools/rx '<命令>'`（先把源码 rsync 到容器 `/work/wangshu-reader`，再在容器里执行）。
   - `tools/rx 'npx tsc -p tsconfig.json --noEmit'`、`tools/rx 'npx vitest run src/formats'`
   - 只读反编译源码时加 `--no-sync`：`tools/rx --no-sync -C /work/analysis 'grep -n xxx jadx/sources/com/flyersoft/...'`
 - 容器里生成的文件（构建产物、截图）留在容器里；要拿回本地用 `tools/pull <相对路径>`。
@@ -42,7 +43,7 @@
 - ⚠️ 用 Write/Edit 写含 `\u2028`/`\u2029` 等转义的源码时，转义可能被还原成真字符，vite 会解析失败、整站打不开。写这类代码用 bash heredoc 或 python，写完 `grep -rlP '[\x{2028}\x{2029}]' src server` 确认为空。
 - 单元测试放在被测文件旁边（`xxx.test.ts`），vitest + happy-dom，IndexedDB 由 fake-indexeddb 提供。
   ⚠️ happy-dom 对 `DOMParser` 生成的文档做 Range 边界比较有 bug（Range 被折叠、`intersectsNode` 抛 WrongDocumentError）：涉及 Range 的测试用全局 `document` 建节点；需要真实浏览器行为的放到 e2e（chromium）。
-- 测试样书放容器 `/work/moonreader-web/samples/`（不进 git、不会被同步删掉）；需要小样本就在测试里程序生成。
+- 测试样书放容器 `/work/wangshu-reader/samples/`（不进 git、不会被同步删掉）；需要小样本就在测试里程序生成。
 - 不要 git commit（总控在阶段末统一提交）。
 
 ## 汇报

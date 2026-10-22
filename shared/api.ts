@@ -5,7 +5,7 @@
 /** GET /api/health */
 export interface HealthResponse {
   ok: true;
-  name: 'moonreader-web-server';
+  name: 'wangshu-reader-server';
   version: string;
   /** 能力开关（外部命令是否可用等），前端据此置灰功能。键名见 ServerFeature */
   features: Partial<Record<ServerFeature, boolean>>;

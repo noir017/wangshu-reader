@@ -116,7 +116,7 @@ describe('请求头映射', () => {
   it('不带 X-Proxy-User-Agent 时用默认 UA（MR_PROXY_USER_AGENT 可改）；URL 里的 user:pass 变 Basic 认证', async () => {
     const up = await upstream((_r, res) => res.end('ok'));
     await px(makeApp().app, up.url);
-    expect(up.seen[0].headers['user-agent']).toMatch(/MoonReaderWeb/);
+    expect(up.seen[0].headers['user-agent']).toMatch(/WangshuReader/);
     await px(makeApp({ MR_PROXY_USER_AGENT: 'MyUA' }).app, up.url);
     expect(up.seen[1].headers['user-agent']).toBe('MyUA');
     await px(makeApp().app, up.url.replace('http://', 'http://us%40er:p%3Aw@'));

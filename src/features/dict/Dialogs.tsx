@@ -41,7 +41,7 @@ function HistoryDialog({ session, close }: { session: ReaderSession; close: () =
       onClose={close}
       headerRight={
         <>
-          <IconButton label={td('exportCsv')} disabled={!list?.length} onClick={() => list && downloadText('moonreader-words.csv', historyToCsv(list), 'text/csv')}>
+          <IconButton label={td('exportCsv')} disabled={!list?.length} onClick={() => list && downloadText('wangshu-words.csv', historyToCsv(list), 'text/csv')}>
             <Download size={18} />
           </IconButton>
           <IconButton

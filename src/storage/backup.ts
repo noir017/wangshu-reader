@@ -19,6 +19,9 @@ import { backupDir, clientFor, loadSyncConfig } from './sync';
 
 export const BACKUP_VERSION = 1;
 export const BACKUP_EXT = 'mrweb';
+/** manifest.app：改名望舒后写新值；旧版（moonreader-web）导出的备份照样能恢复 */
+export const BACKUP_APP = 'wangshu-reader';
+const BACKUP_APPS: readonly string[] = [BACKUP_APP, 'moonreader-web'];
 
 export interface BackupOptions {
   covers: boolean;
@@ -30,7 +33,7 @@ export interface BackupOptions {
 }
 
 export interface BackupManifest {
-  app: 'moonreader-web';
+  app: string;
   version: number;
   createdAt: number;
   deviceId: string;
@@ -112,7 +115,7 @@ export function backupFileName(format: 'zip' | 'json', date = new Date()): strin
 export async function createBackup(opts: BackupOptions): Promise<Blob> {
   const d = await collectBackupData(opts);
   const manifest: BackupManifest = {
-    app: 'moonreader-web',
+    app: BACKUP_APP,
     version: BACKUP_VERSION,
     createdAt: Date.now(),
     deviceId: deviceId(),
@@ -166,7 +169,7 @@ export async function parseBackup(file: Blob): Promise<ParsedBackup> {
     }
     const json = <T>(name: string, dflt: T): T => (entries[name] ? (JSON.parse(strFromU8(entries[name])) as T) : dflt);
     const manifest = json<BackupManifest | undefined>('manifest.json', undefined);
-    if (!manifest || manifest.app !== 'moonreader-web') throw new BackupFormatError('不是静读天下 Web 版的备份文件');
+    if (!manifest || !BACKUP_APPS.includes(manifest.app)) throw new BackupFormatError('不是望舒的备份文件');
     if (manifest.version > BACKUP_VERSION) throw new BackupFormatError('备份来自更新的版本，请先升级应用');
     const data: BackupData = {
       manifest,
@@ -196,7 +199,7 @@ export async function parseBackup(file: Blob): Promise<ParsedBackup> {
   }
   try {
     const j = JSON.parse(strFromU8(bytes)) as Partial<BackupData>;
-    if (!j.manifest || j.manifest.app !== 'moonreader-web') throw new BackupFormatError('不是静读天下 Web 版的备份文件');
+    if (!j.manifest || !BACKUP_APPS.includes(j.manifest.app)) throw new BackupFormatError('不是望舒的备份文件');
     return {
       data: {
         manifest: j.manifest,

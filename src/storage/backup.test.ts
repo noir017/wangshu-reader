@@ -180,6 +180,15 @@ describe('备份与恢复', () => {
     await expect(parseBackup(new Blob([new Uint8Array([0x50, 0x4b, 1, 2, 3])]))).rejects.toBeInstanceOf(BackupFormatError);
   });
 
+  it('改名前（manifest.app = moonreader-web）导出的备份照样能恢复', async () => {
+    await seed();
+    const j = JSON.parse(await (await createBackup({ covers: false, books: false, format: 'json' })).text());
+    expect(j.manifest.app).toBe('wangshu-reader');
+    j.manifest.app = 'moonreader-web';
+    const p = await parseBackup(new Blob([JSON.stringify(j)]));
+    expect(p.data.books.length).toBeGreaterThan(0);
+  });
+
   it('不带封面/书籍时 manifest 如实标注', async () => {
     await seed();
     const p = await parseBackup(await createBackup({ covers: false, books: false, format: 'zip' }));

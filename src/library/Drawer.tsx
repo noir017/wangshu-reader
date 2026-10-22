@@ -35,7 +35,7 @@ export function DrawerContent(props: { route: string; onGo: () => void }) {
     <div>
       <div className={s.drawerHead}>
         <b>{t('appTitle')}</b>
-        <span>Moon+ Reader Pro · Web</span>
+        <span>{t('appSubtitle')}</span>
       </div>
       <button className={s.drawerItem} data-active={active(['', 'recent'])} onClick={() => go('')}>
         <BookOpen size={20} /> <span className={s.grow}>{t('tabRecent')}</span>

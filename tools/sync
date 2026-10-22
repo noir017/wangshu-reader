@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# 本地源码 → armbox 的 moonreader-dev 容器（/work/moonreader-web）。单向，本地为准。
+# 本地源码 → armbox 的 moonreader-dev 容器（/work/wangshu-reader）。单向，本地为准。
+# 本地目录叫什么都行（路径由脚本位置推导）；远端目录固定。
 # 远端生成物（node_modules、dist、out、package-lock.json 等）被排除，既不推送也不会被 --delete 删掉。
 set -euo pipefail
 here="$(cd "$(dirname "$0")/.." && pwd)"
@@ -10,4 +11,4 @@ exec rsync -az --delete \
   --exclude '.vite/' --exclude 'test-results/' --exclude 'playwright-report/' \
   --exclude '*.tsbuildinfo' --exclude 'package-lock.json' \
   --exclude '/server/data/' --exclude '/samples/' \
-  "$here/" armbox:apps/moonreader-dev/workspace/moonreader-web/
+  "$here/" armbox:apps/moonreader-dev/workspace/wangshu-reader/

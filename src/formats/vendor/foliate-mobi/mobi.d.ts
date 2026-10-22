@@ -1,4 +1,4 @@
-// Types for the vendored foliate-js mobi.js (only the surface moonreader-web uses).
+// Types for the vendored foliate-js mobi.js (only the surface wangshu-reader uses).
 export interface MobiMetadata {
   identifier?: string;
   title?: string;

@@ -1,8 +1,8 @@
 {
-  "name": "moonreader-web",
+  "name": "wangshu-reader",
   "version": "0.1.0",
   "private": true,
-  "description": "静读天下（Moon+ Reader）web 版复刻：浏览器端阅读器 + HTTP 服务端",
+  "description": "望舒（Wangshu Reader）：浏览器端电子书阅读器 + HTTP 服务端，界面与功能参考 Moon+ Reader（静读天下）",
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
@@ -15,7 +15,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p server/tsconfig.json --noEmit",
     "test": "vitest run",
     "e2e": "playwright test",
-    "deps": "flock /tmp/moonreader-npm.lock npm install --no-audit --no-fund"
+    "deps": "flock /tmp/wangshu-reader-npm.lock npm install --no-audit --no-fund"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.5",

@@ -12,7 +12,7 @@ async function stubExternal(context: BrowserContext) {
 }
 
 async function fakeServer(page: Page) {
-  await page.route('**/api/health', (r) => r.fulfill({ json: { ok: true, name: 'moonreader-web-server', version: 't', features: { dict: true, translate: true, tts: true } } }));
+  await page.route('**/api/health', (r) => r.fulfill({ json: { ok: true, name: 'wangshu-reader-server', version: 't', features: { dict: true, translate: true, tts: true } } }));
   await page.route('**/api/dict/sources', (r) => r.fulfill({ json: { sources: [{ id: 'a', name: '源A', langs: ['en'] }, { id: 'b', name: '源B', langs: ['en'] }] } }));
   await page.route(/\/api\/dict\?/, (r) => {
     const u = new URL(r.request().url());
