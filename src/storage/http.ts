@@ -1,6 +1,5 @@
 // 访问服务端的底层封装：与 core/server 的 apiFetch 不同，这里不因非 2xx 抛错（WebDAV/OPDS 需要自己看 401/404/207）。
-import { appSettings } from '@/core/app-settings';
-import { ServerUnavailableError, serverBase, unreachableError } from '@/core/server';
+import { ServerUnavailableError, serverBase, serverToken, unreachableError } from '@/core/server';
 import { PROXY_PATH } from '@shared/api';
 
 export interface ServerFetchInit extends RequestInit {
@@ -12,7 +11,7 @@ export async function serverFetch(path: string, init: ServerFetchInit = {}): Pro
   const base = serverBase();
   if (!base) throw new ServerUnavailableError();
   const headers = new Headers(init.headers);
-  const token = appSettings.get().serverToken;
+  const token = serverToken();
   if (token && !headers.has('Authorization')) headers.set('Authorization', `Bearer ${token}`);
   try {
     return await fetch(base + path, { ...init, headers });
@@ -50,6 +49,6 @@ export function proxyFetch(url: string, init: ProxyInit = {}): Promise<Response>
 export function proxyUrl(url: string): string {
   const base = serverBase();
   if (!base) return url;
-  const token = appSettings.get().serverToken;
+  const token = serverToken();
   return `${base}${PROXY_PATH}?url=${encodeURIComponent(url)}${token ? `&token=${encodeURIComponent(token)}` : ''}`;
 }

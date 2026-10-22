@@ -1,13 +1,14 @@
 // PWA（MISC-008）：注册 service worker、接收「分享目标」收到的文件。
 // 只在 http(s) 部署时启用：file:// 单文件版不能注册 SW，也不去请求 manifest（否则控制台里满是 CORS 报错）；
-// vite 开发服务器（import.meta.env.DEV）也不注册，免得缓存干扰热更新。
+// vite 开发服务器（import.meta.env.DEV）也不注册，免得缓存干扰热更新；Android app 也不注册（页面在 APK 里，SW 缓存会让升级后还跑旧壳）。
+import { nativeHost } from '@/core/host';
 import { importWithUi } from './ImportDialogs';
 import { goRead } from './actions';
 
 const SHARE_CACHE = 'mr-share';
 
 export function pwaSupported(): boolean {
-  return typeof window !== 'undefined' && /^https?:$/.test(window.location.protocol) && 'serviceWorker' in navigator && !import.meta.env.DEV && __BUILD_MODE__ !== 'single';
+  return typeof window !== 'undefined' && !nativeHost && /^https?:$/.test(window.location.protocol) && 'serviceWorker' in navigator && !import.meta.env.DEV && __BUILD_MODE__ !== 'single';
 }
 
 /** 注册 service worker，并把本次页面加载用到的静态资源地址告诉它（首次访问时这些请求没经过 SW，补进缓存才能离线打开） */

@@ -1,12 +1,13 @@
 // 应用级设置（与阅读排版无关的全局项）。各业务模块的设置在各自目录里 defineSettings。
+import { nativeHost } from './host';
 import { defineSettings } from './settings';
 
 export type Lang = 'zh' | 'en';
 
-/** 同源 http(s) 部署时默认用同源服务端；file:// 打开单文件版时默认无服务端（需在设置里填地址） */
+/** 同源 http(s) 部署时默认用同源服务端；file:// 打开单文件版、Android app（页面源是壳虚拟的）时默认无服务端（需在设置里填地址） */
 function defaultServerUrl(): string {
   const loc = globalThis.location;
-  return loc && (loc.protocol === 'http:' || loc.protocol === 'https:') ? loc.origin : '';
+  return loc && !nativeHost && (loc.protocol === 'http:' || loc.protocol === 'https:') ? loc.origin : '';
 }
 
 export const appSettings = defineSettings('app', {

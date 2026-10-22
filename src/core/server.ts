@@ -1,6 +1,7 @@
 // 浏览器 → 服务端的统一入口。所有需要服务端的功能都经这里，不要自己拼 fetch。
 // 接口清单与请求/响应类型见 shared/api.ts（服务端实现同一份）。
 import { appSettings } from './app-settings';
+import { hostServer } from './host';
 import { defineMessages } from './i18n';
 
 const tm = defineMessages({
@@ -101,7 +102,12 @@ export function unreachableError(base: string, e: unknown): ServerUnavailableErr
 }
 
 export function serverBase(): string {
-  return appSettings.get().serverUrl.replace(/\/+$/, '');
+  return (hostServer()?.url ?? appSettings.get().serverUrl).replace(/\/+$/, '');
+}
+
+/** 服务端访问令牌（app 内置服务端在用时取它的） */
+export function serverToken(): string {
+  return hostServer()?.token ?? appSettings.get().serverToken;
 }
 
 export function hasServer(): boolean {
@@ -109,7 +115,7 @@ export function hasServer(): boolean {
 }
 
 function authHeaders(): Record<string, string> {
-  const token = appSettings.get().serverToken;
+  const token = serverToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 

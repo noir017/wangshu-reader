@@ -2,8 +2,9 @@
 // 原 app 是一个全屏对话框，Web 版做成一页（路由 #/settings[/分区]），分区之间用标题隔开。
 import { useEffect, useRef, useState } from 'react';
 import { Archive, Download, Folder, FolderPlus, ImagePlus, KeyRound, Library, Trash2, Upload, X } from 'lucide-react';
-import { Button, GroupTitle, PrefSelect, PrefSlider, PrefSwitch, Row, Select, Sheet, Switch, confirmDialog, openOverlay, toast } from '@/ui';
+import { Button, GroupTitle, PrefSelect, PrefSlider, PrefSwitch, Row, Segmented, Select, Sheet, Switch, confirmDialog, openOverlay, toast } from '@/ui';
 import { appSettings, type Lang } from '@/core/app-settings';
+import { nativeHost, setServerMode, type ServerMode } from '@/core/host';
 import { checkServer, hasServer } from '@/core/server';
 import { screenSettings } from '@/reader/settings';
 import { setKV } from '@/storage/db';
@@ -242,8 +243,9 @@ function ServerSection() {
   const [url, setUrl] = useState(() => appSettings.get().serverUrl);
   const [token, setToken] = useState(() => appSettings.get().serverToken);
   const [state, setState] = useState<'idle' | 'checking' | 'ok' | 'fail' | 'auth'>('idle');
+  const local = nativeHost?.mode === 'local';
   const check = async () => {
-    appSettings.set({ serverUrl: url.trim().replace(/\/+$/, ''), serverToken: token.trim() });
+    if (!local) appSettings.set({ serverUrl: url.trim().replace(/\/+$/, ''), serverToken: token.trim() });
     if (!hasServer()) {
       setState('fail');
       return;
@@ -257,13 +259,33 @@ function ServerSection() {
   return (
     <>
       <GroupTitle>{t('secServer')}</GroupTitle>
-      {!hasServer() && <div className={`${s.pad} ${s.dim}`} style={{ fontSize: 13 }}>{t('serverNone')}</div>}
-      <Field label={t('serverUrl')}>
-        <TextField value={url} onChange={setUrl} inputMode="url" placeholder="http://192.168.1.2:8787" />
-      </Field>
-      <Field label={t('serverToken')}>
-        <TextField value={token} onChange={setToken} type="password" />
-      </Field>
+      {nativeHost && (
+        <Field label={t('serverMode')}>
+          <Segmented<ServerMode>
+            value={nativeHost.mode}
+            onChange={(m) => m !== nativeHost?.mode && setServerMode(m)}
+            options={[
+              { value: 'local', label: t('serverModeLocal') },
+              { value: 'remote', label: t('serverModeRemote') },
+            ]}
+          />
+        </Field>
+      )}
+      {local ? (
+        <div className={`${s.pad} ${s.dim}`} style={{ fontSize: 13 }}>
+          {nativeHost?.local?.ok ? t('serverLocalOk') : t('serverLocalFail', { why: nativeHost?.local?.error ?? '' })}
+        </div>
+      ) : (
+        <>
+          {!hasServer() && <div className={`${s.pad} ${s.dim}`} style={{ fontSize: 13 }}>{t('serverNone')}</div>}
+          <Field label={t('serverUrl')}>
+            <TextField value={url} onChange={setUrl} inputMode="url" placeholder="http://192.168.1.2:8787" />
+          </Field>
+          <Field label={t('serverToken')}>
+            <TextField value={token} onChange={setToken} type="password" />
+          </Field>
+        </>
+      )}
       <div className={s.btnRow} style={{ alignItems: 'center' }}>
         <Button primary onClick={() => void check()}>{t('serverCheck')}</Button>
         {state === 'ok' && <span style={{ color: '#2e7d32' }}>{t('serverOk')}</span>}

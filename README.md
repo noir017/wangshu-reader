@@ -33,13 +33,14 @@
 
 不想自己构建，可以直接拿构建好的文件：
 
-- **Release**：[最新版](https://github.com/noir017/wangshu-reader/releases/latest)，每个 `v*` tag 自动发布，附三个文件：
+- **Release**：[最新版](https://github.com/noir017/wangshu-reader/releases/latest)，每个 `v*` tag 自动发布，附四个文件：
   - `wangshu-reader-single.html`：单文件版
   - `wangshu-reader-web.zip`：静态网站
   - `wangshu-reader-server.zip`：服务端部署包（含前端）
-- **CI 产物**：main 上每次提交都会构建，在 [Actions](https://github.com/noir017/wangshu-reader/actions/workflows/ci.yml) 里点开某次运行，底部 Artifacts 里有同样的三样（下载要登录 GitHub，默认保留 90 天）。
+  - `wangshu-reader-android.apk`：Android app（arm64，自带服务端）
+- **CI 产物**：main 上每次提交都会构建，在 [Actions](https://github.com/noir017/wangshu-reader/actions/workflows/ci.yml) 里点开某次运行，底部 Artifacts 里有前三样和一个 debug 签名的 APK（下载要登录 GitHub，默认保留 90 天）。debug 包和 Release 的包签名不同，不能互相覆盖安装。
 
-## 三种用法
+## 四种用法
 
 ### 1. 单文件版
 
@@ -83,6 +84,15 @@ MR_HOST=0.0.0.0 MR_TOKEN=换成一个长随机串 MR_LIBRARY_DIR=/path/to/books 
 ⚠️ 服务端要给局域网或公网用时，一定要设 `MR_TOKEN`，否则书库读写和 WebDAV 对所有人开放。
 
 另外，装成桌面应用（PWA）、关联本地文件夹自动导入这些功能，浏览器只在 https 或 localhost 下才给用。
+
+### 4. Android app
+
+```bash
+npm install
+android/scripts/build.sh  # 产物：android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+app 自带服务端（本机模式），也可以改连远程服务端，详见 [android/README.md](android/README.md)。
 
 ## 开发
 
