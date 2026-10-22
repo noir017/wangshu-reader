@@ -1,6 +1,7 @@
 // 网络书库站点（NET-001/005/009）：内置列表 + 用户添加；存 kv。口令存在站点记录里（本机 IndexedDB），备份导出时会剔除。
 import { useEffect, useState } from 'react';
 import { dbEvents, getKV, newId, setKV } from '@/storage/db';
+import { t } from './i18n';
 
 export interface Catalog {
   id: string;
@@ -64,6 +65,24 @@ export const BUILTIN_CATALOGS: Omit<Catalog, 'addedAt'>[] = [
     version: 5,
   },
 ];
+
+// 内置站点的显示文字跟界面语言走：记录里存的是原 app 的英文原文（升级合并、改名判断都按原文比），
+// 只在显示时、且文字仍是内置原文（用户没改过）时换成当前语言；站点名是品牌（Project Gutenberg、Feedbooks）的不翻。
+const BUILTIN_TEXT: Record<string, { title?: () => string; summary?: () => string }> = {
+  gutenberg: { summary: () => t('catGutenbergSummary') },
+  feedbooks: { summary: () => t('catFeedbooksSummary') },
+  moonreader: { title: () => t('catMoonTitle'), summary: () => t('catMoonSummary') },
+  mobileread: { title: () => t('catMobilereadTitle'), summary: () => t('catMobilereadSummary') },
+};
+const builtinOf = (id: string) => BUILTIN_CATALOGS.find((b) => b.id === id);
+
+export function catalogTitle(c: Pick<Catalog, 'id' | 'title'>): string {
+  return (c.title === builtinOf(c.id)?.title && BUILTIN_TEXT[c.id]?.title?.()) || c.title;
+}
+
+export function catalogSummary(c: Pick<Catalog, 'id' | 'summary'>): string | undefined {
+  return (c.summary !== undefined && c.summary === builtinOf(c.id)?.summary && BUILTIN_TEXT[c.id]?.summary?.()) || c.summary;
+}
 
 const KEY = 'library.catalogs';
 const DELETED_KEY = 'library.catalogs.deleted';

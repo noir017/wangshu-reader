@@ -136,20 +136,20 @@ test('网络书库（本地假 OPDS）：添加 → 浏览/分页 → 搜索 →
   expect(book).toMatchObject({ title: 'OPDS 下来的书', source: { kind: 'opds', catalog: '测试书库' }, hasCover: true });
   // 编辑名称 / 置顶 / 删除
   await go(page, '#/net');
-  await page.locator('[class*=groupRow]').filter({ hasText: '测试书库' }).getByRole('button', { name: 'menu' }).click();
+  await page.locator('[class*=groupRow]').filter({ hasText: '测试书库' }).getByRole('button', { name: '操作' }).click();
   await page.getByRole('menuitem', { name: '编辑书库' }).click();
   await page.getByRole('dialog').last().getByLabel('书库名(可选):').fill('我的书库');
   await page.getByRole('dialog').last().getByRole('button', { name: '确定' }).click();
   await expect(page.getByText('我的书库', { exact: true })).toBeVisible();
-  await page.locator('[class*=groupRow]').filter({ hasText: '我的书库' }).getByRole('button', { name: 'menu' }).click();
+  await page.locator('[class*=groupRow]').filter({ hasText: '我的书库' }).getByRole('button', { name: '操作' }).click();
   await page.getByRole('menuitem', { name: '置顶' }).click();
   await expect(page.locator('[class*=groupRow]').first()).toContainText('我的书库');
-  await page.locator('[class*=groupRow]').filter({ hasText: '我的书库' }).getByRole('button', { name: 'menu' }).click();
+  await page.locator('[class*=groupRow]').filter({ hasText: '我的书库' }).getByRole('button', { name: '操作' }).click();
   await page.getByRole('menuitem', { name: '删除', exact: true }).click();
   await page.getByRole('dialog').last().getByRole('button', { name: '确定' }).click();
   await expect(page.getByText('我的书库', { exact: true })).toHaveCount(0);
   // 删掉内置站点后重启不会恢复（墓碑）
-  await page.locator('[class*=groupRow]').filter({ hasText: 'Feedbooks' }).getByRole('button', { name: 'menu' }).click();
+  await page.locator('[class*=groupRow]').filter({ hasText: 'Feedbooks' }).getByRole('button', { name: '操作' }).click();
   await page.getByRole('menuitem', { name: '删除', exact: true }).click();
   await page.getByRole('dialog').last().getByRole('button', { name: '确定' }).click();
   await page.reload();
@@ -555,7 +555,7 @@ test('封面搜索限流（B 节第 4 条）：Google Books 429 时给出友好�
   await page.route('https://covers.openlibrary.org/**', (route) => route.fulfill({ status: 200, contentType: 'image/png', headers: { 'access-control-allow-origin': '*' }, body: makePng(60, 90, 4) }));
   // 首选 Google Books：429 → 自动回退 Open Library
   await go(page, '#/shelf');
-  await page.locator('[data-id]').first().locator('button[aria-label=menu]').click({ force: true });
+  await page.locator('[data-id]').first().locator('button[aria-label="操作"]').click({ force: true });
   await page.getByRole('menuitem', { name: '下载书籍封面' }).click();
   await page.getByRole('dialog').last().getByRole('radio', { name: 'Google Books' }).click();
   await expect(page.locator('[class*=cell]').filter({ hasText: 'Open Library' }).first()).toBeVisible({ timeout: 15_000 });

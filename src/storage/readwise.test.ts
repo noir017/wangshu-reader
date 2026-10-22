@@ -52,7 +52,7 @@ describe('Readwise', () => {
 
   it('非 200 抛出带状态码与服务端消息的错误', async () => {
     const f = (async () => new Response(JSON.stringify({ detail: 'Invalid token.' }), { status: 401 })) as unknown as typeof fetch;
-    await expect(postHighlights([], { token: 'x', url: 'https://readwise.io/api/v2/highlights/' }, f)).rejects.toThrow('401 | Invalid token.');
+    await expect(postHighlights([], { token: 'x', url: 'https://readwise.io/api/v2/highlights/' }, f)).rejects.toThrow('401 未授权（访问令牌错误或未填写） | Invalid token.');
     await expect(postHighlights([], { token: 'x', url: '' }, f)).rejects.toBeInstanceOf(ReadwiseError);
   });
 
@@ -61,7 +61,7 @@ describe('Readwise', () => {
     const f = (async () => {
       throw new TypeError('Failed to fetch');
     }) as unknown as typeof fetch;
-    await expect(postHighlights([], { token: 'x', url: '' }, f)).rejects.toThrow('Failed to fetch');
+    await expect(postHighlights([], { token: 'x', url: '' }, f)).rejects.toThrow('网络请求失败');
   });
 
   it('直连失败时改走服务端代理，令牌放在 X-Proxy-Authorization', async () => {
@@ -81,7 +81,7 @@ describe('Readwise', () => {
 
   it('手动分享单条：没有 token 先提示；有 token 就发', async () => {
     await putBook({ id: 'b1', fileName: 'a.epub', format: 'epub', size: 1, title: '三体', authors: ['刘慈欣'], tags: [], addedAt: 1, onShelf: true, hasCover: false });
-    await expect(shareAnnotation(ann())).rejects.toThrow('Readwise Token');
+    await expect(shareAnnotation(ann())).rejects.toThrow('Readwise 访问令牌');
     readwiseSettings.set({ token: 'tk' });
     const bodies: string[] = [];
     vi.stubGlobal('fetch', async (_u: string, init: RequestInit) => {

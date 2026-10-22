@@ -28,6 +28,9 @@ export const tc = defineMessages({
     needServer: '需要连接服务端',
     chapter: '章节',
     book: '书',
+    moveUp: '上移',
+    moveDown: '下移',
+    expand: '展开/收起',
   },
   en: {
     ok: 'OK',
@@ -55,5 +58,8 @@ export const tc = defineMessages({
     needServer: 'Server connection required',
     chapter: 'Chapter',
     book: 'Book',
+    moveUp: 'Move up',
+    moveDown: 'Move down',
+    expand: 'Expand/collapse',
   },
 });

@@ -111,7 +111,7 @@ export function MiscOptions({ close, onSwitch }: { close: () => void; onSwitch: 
         onClick={() => void setTiltEnabled(!tilt)}
         right={
           <>
-            <button type="button" aria-label="settings" onClick={(e) => { e.stopPropagation(); openTiltDialog(); }} style={{ border: 'none', background: 'none', color: 'var(--mr-muted)', cursor: 'pointer' }}>⚙</button>
+            <button type="button" aria-label={t('settings_gear')} onClick={(e) => { e.stopPropagation(); openTiltDialog(); }} style={{ border: 'none', background: 'none', color: 'var(--mr-muted)', cursor: 'pointer' }}>⚙</button>
             <input type="checkbox" role="switch" checked={tilt} onChange={() => void setTiltEnabled(!tilt)} onClick={(e) => e.stopPropagation()} style={{ width: 20, height: 20 }} />
           </>
         }

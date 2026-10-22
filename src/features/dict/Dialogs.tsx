@@ -114,10 +114,10 @@ function DictSettingsDialog({ close }: { close: () => void }) {
           icon={<Switch checked={it.on} disabled={i < MAIN_SLOTS} onChange={() => selectBarSettings.set({ items: toggleItem(items, i) })} />}
           right={
             <>
-              <IconButton label="up" disabled={i === 0} onClick={() => selectBarSettings.set({ items: moveItem(items, i, i - 1) })} style={{ width: 32, height: 32 }}>
+              <IconButton label={tc('moveUp')} disabled={i === 0} onClick={() => selectBarSettings.set({ items: moveItem(items, i, i - 1) })} style={{ width: 32, height: 32 }}>
                 <ArrowUp size={16} />
               </IconButton>
-              <IconButton label="down" disabled={i === items.length - 1} onClick={() => selectBarSettings.set({ items: moveItem(items, i, i + 1) })} style={{ width: 32, height: 32 }}>
+              <IconButton label={tc('moveDown')} disabled={i === items.length - 1} onClick={() => selectBarSettings.set({ items: moveItem(items, i, i + 1) })} style={{ width: 32, height: 32 }}>
                 <ArrowDown size={16} />
               </IconButton>
             </>

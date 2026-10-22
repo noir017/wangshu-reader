@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import type { BookRecord, CoverKind } from '@/core/library';
 import { dbEvents, getCover, putCover, deleteCover, updateBook } from '@/storage/db';
 import { proxyFetch } from '@/storage/http';
-import { hasServer } from '@/core/server';
+import { describeStatus, hasServer } from '@/core/server';
 import { shelfSettings } from './settings';
 
 /** 封面查找优先级（LIB-019 的 _3 > _1 > _2 > .png） */
@@ -280,7 +280,7 @@ async function getJson(url: string, engine: CoverEngine): Promise<any> {
     if (attempt === 0 && (retryAfter ?? 1.5) <= 4) await sleep((retryAfter ?? 1.5) * 1000);
     else break;
   }
-  throw new CoverSearchError(`${SITE[engine]}: ${status}`, engine, status === 429, retryAfter);
+  throw new CoverSearchError(`${SITE[engine]}：${describeStatus(status)}`, engine, status === 429, retryAfter);
 }
 
 /** 搜索关键字：书名 + 作者，去掉 _ - 与 (TXT)(HTML) 之类标记；太短时补「封面」（原 PrefDownloadCover 的规则） */

@@ -78,7 +78,8 @@ h2{font-size:15px;margin:0 0 8px;display:flex;justify-content:space-between;alig
 <script>
 (function(){
 var cfg=JSON.parse(document.getElementById('cfg').textContent);
-var zh=/^zh/i.test(navigator.language||'');
+// 界面语言跟 app 设置走（同源时读得到）：默认简体中文，只有在 app 里手动选了英文才用英文
+var zh=true;try{var st=JSON.parse(localStorage.getItem('mr.settings.v1')||'{}');zh=!(st&&st.app&&st.app.language==='en')}catch(e){}
 var T={
  title:zh?'Moon+ Reader Web · 网页传书':'Moon+ Reader Web · Transfer',
  drop:zh?'把电子书拖到这里':'Drop books here',
@@ -124,7 +125,7 @@ function list(){
     es.forEach(function(e){
       var li=document.createElement('li');
       var a=document.createElement('a');a.className='name';a.textContent=e.name;a.href='/api/library/file?path='+enc(e.path)+'&download=1'+tq();
-      var m=document.createElement('span');m.className='meta';m.textContent=size(e.size)+' · '+new Date(e.mtime).toLocaleString();
+      var m=document.createElement('span');m.className='meta';m.textContent=size(e.size)+' · '+new Date(e.mtime).toLocaleString(zh?'zh-CN':'en');
       var b=document.createElement('button');b.textContent=T.del;
       b.onclick=function(){if(!confirm(T.delAsk+e.name+'?'))return;
         fetch('/api/library/delete',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},hdr()),body:JSON.stringify({paths:[e.path]})}).then(list)};

@@ -4,6 +4,7 @@ import { RotateCcw, Settings } from 'lucide-react';
 import type { SettingsSlice } from '@/core/settings';
 import { ColorPicker, GroupTitle, Row, Select, Sheet, Slider, Switch, openOverlay } from '@/ui';
 import s from '../reader-ui.module.css';
+import { t } from '../messages';
 
 type Values = Record<string, unknown>;
 type KeysOfType<T, V> = { [K in keyof T]: T[K] extends V ? K : never }[keyof T] & string;
@@ -15,7 +16,7 @@ export function GearButton({ onClick, label }: { onClick: () => void; label?: st
     <button
       type="button"
       className={s.rowGear}
-      aria-label={label ?? 'settings'}
+      aria-label={label ?? t('settings_gear')}
       onClick={(e) => {
         e.stopPropagation();
         onClick();

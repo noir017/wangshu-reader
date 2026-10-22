@@ -14,10 +14,26 @@ import { useReaderUi } from '../store';
 import { t } from '../messages';
 import s from '../reader-ui.module.css';
 
+// 内置主题名是原 app 的英文原文（也是存储用的键），显示时换成当前语言
+const BUILTIN_THEME_LABELS: Record<string, () => string> = {
+  'Day 1': () => t('theme_day_n', { n: 1 }),
+  'Day 2': () => t('theme_day_n', { n: 2 }),
+  'Day 3': () => t('theme_day_n', { n: 3 }),
+  'Night 1 (True black)': () => t('theme_night_black'),
+  'Night 2': () => t('theme_night_n', { n: 2 }),
+  'Night 3': () => t('theme_night_n', { n: 3 }),
+  'Outdoor (Pure white)': () => t('theme_outdoor'),
+  nature: () => t('theme_nature'),
+  'pro 1': () => t('theme_pro_n', { n: 1 }),
+  'pro 2': () => t('theme_pro_n', { n: 2 }),
+  'pro 3': () => t('theme_pro_n', { n: 3 }),
+  'pro 4': () => t('theme_pro_n', { n: 4 }),
+};
+
 export function themeDisplayName(name: string): string {
   if (name === DAY_THEME) return t('day_theme');
   if (name === NIGHT_THEME) return t('night_theme');
-  return name;
+  return BUILTIN_THEME_LABELS[name]?.() ?? name;
 }
 
 // ───────────── 读取配色方案 ─────────────
@@ -82,7 +98,7 @@ function ThemeLoader({ close }: { close: () => void }) {
         label: t('rename'),
         onSelect: async () => {
           if (isProtectedTheme(e.name)) return void toast(t('theme_cannot_change'));
-          const nn = await promptDialog(t('rename_to'), e.name);
+          const nn = await promptDialog(t('rename_to'), themeDisplayName(e.name));
           if (nn === null) return;
           const r = renameTheme(e.name, nn);
           if (r === 'invalid') toast(t('theme_name_error'));

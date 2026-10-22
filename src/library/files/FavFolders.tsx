@@ -31,7 +31,7 @@ function FavFoldersDialog({ onClose }: { onClose: () => void }) {
         <>
           <Button
             onClick={async () => {
-              const p = await promptDialog(t('filesFolderName'), '', { placeholder: 'Books/Novels' });
+              const p = await promptDialog(t('filesFolderName'), '', { placeholder: '书籍/小说' });
               if (p?.trim()) addFavFolder(p.trim().replace(/^\/+|\/+$/g, ''));
             }}
           >

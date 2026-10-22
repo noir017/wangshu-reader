@@ -1,6 +1,6 @@
 // 服务端书库目录（/api/library/*，shared/api.ts）的客户端。服务端不可用时抛 ServerUnavailableError，由页面置灰。
 import type { HealthResponse, LibraryEntry, LibraryListResponse } from '@shared/api';
-import { apiFetch, apiJson, apiPostJson, hasServer, serverBase } from '@/core/server';
+import { apiFetch, apiJson, apiPostJson, hasServer, responseErrorText, serverBase } from '@/core/server';
 import { appSettings } from '@/core/app-settings';
 import { serverFetch } from '@/storage/http';
 
@@ -44,7 +44,7 @@ export const fileUrl = (path: string) => directUrl('/api/library/file', { path }
 /** 下载服务端文件（带进度、可取消） */
 export async function downloadServerFile(path: string, name: string, opts: { signal?: AbortSignal; onProgress?: (loaded: number, total: number) => void } = {}): Promise<File> {
   const res = await serverFetch(`/api/library/file?path=${encodeURIComponent(path)}`, { signal: opts.signal });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  if (!res.ok) throw new Error(await responseErrorText(res));
   const total = Number(res.headers.get('Content-Length')) || 0;
   const chunks: BlobPart[] = [];
   let loaded = 0;

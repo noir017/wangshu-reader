@@ -94,7 +94,7 @@ function TextCover(props: { book: BookRecord; busy: boolean; onApply: (text: str
       <TextField value={text} onChange={setText} placeholder={t('coverText')} />
       <div className={s.btnRow} style={{ padding: 0 }}>
         {PALETTES.map((p, i) => (
-          <button key={i} onClick={() => setIdx(i)} aria-label={`palette ${i}`} style={{ width: 34, height: 34, borderRadius: '50%', border: idx === i ? '3px solid var(--mr-accent)' : '2px solid var(--mr-border)', background: `linear-gradient(135deg, ${p.from}, ${p.to})`, cursor: 'pointer' }} />
+          <button key={i} onClick={() => setIdx(i)} aria-label={`${t('coverBuiltin')} ${i + 1}`} style={{ width: 34, height: 34, borderRadius: '50%', border: idx === i ? '3px solid var(--mr-accent)' : '2px solid var(--mr-border)', background: `linear-gradient(135deg, ${p.from}, ${p.to})`, cursor: 'pointer' }} />
         ))}
       </div>
       <div style={{ display: 'flex', justifyContent: 'center' }}>

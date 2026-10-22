@@ -6,6 +6,7 @@
 // 字号/页边距/窗口尺寸变化后：先记下窗口首个可见字符的偏移（字符锚点），重排后把它所在行放回页顶。
 import type { Book, Locator, ReflowableBook, SectionContent, TextRange } from '@/core/book';
 import { Emitter } from '@/core/emitter';
+import { currentLang } from '@/core/i18n';
 import { textOfHtml, textWithBreaks } from '@/core/text';
 import type { Decoration, GoToTarget, ReaderController, ReaderEvents, ReaderLocation, ReaderSelection } from '@/core/reader';
 import { autoScrollSettings, cssSettings, flipSettings, screenSettings, textSettings, themeSettings } from '../settings';
@@ -427,7 +428,8 @@ export class Engine implements ReaderController {
         post: async (fr) => {
           await applyTransforms(fr, this.transformOptions());
           const css = cssSettings.get();
-          const zh = /^(zh|ja|ko)/i.test(this.book.metadata.language ?? '');
+          // 章末提示是界面文案：跟界面语言走（原 app R.string.chapter_end），不跟书的语言
+          const zh = currentLang() === 'zh';
           await applyExtras(fr, {
             section,
             visited: this.visited,

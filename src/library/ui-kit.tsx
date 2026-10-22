@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { ArrowLeft } from 'lucide-react';
 import { IconButton } from '@/ui';
 import s from './library.module.css';
+import { t } from './i18n';
 
 /** 全屏对话框（原 app 的「选项」「导入书籍」「书籍信息」都是全屏）。宽屏下居中成卡片 */
 export function FullDialog(props: {
@@ -30,7 +31,7 @@ export function FullDialog(props: {
     <div className={s.fullBackdrop} onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className={s.fullDialog} style={props.width ? { maxWidth: props.width } : undefined} role="dialog" aria-modal="true">
         <div className={s.fullHeader}>
-          <IconButton label="返回" onClick={onClose}>
+          <IconButton label={t('back')} onClick={onClose}>
             <ArrowLeft size={22} />
           </IconButton>
           <div className={s.fullTitle}>{props.title}</div>
@@ -112,7 +113,7 @@ export function Empty(props: { icon?: ReactNode; text: ReactNode; children?: Rea
 }
 
 export function Spinner({ size = 20 }: { size?: number }) {
-  return <span className={s.spinner} style={{ width: size, height: size }} aria-label="loading" />;
+  return <span className={s.spinner} style={{ width: size, height: size }} aria-label={t('loading')} />;
 }
 
 export function ProgressLine({ value }: { value: number }) {

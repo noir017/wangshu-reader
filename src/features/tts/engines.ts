@@ -2,6 +2,15 @@
 import type { TtsRequest, TtsVoice, TtsVoicesResponse } from '@shared/api';
 import { apiFetch, apiJson } from '@/core/server';
 import { guessLang, pickVoice, type VoiceLike } from './voices';
+import { tr } from './messages';
+
+/** SpeechSynthesisErrorEvent.error / 播放异常 → 当前语言的说明（原始代码是英文） */
+function speechErrorText(code: string): string {
+  if (code === 'network') return tr('errNetwork');
+  if (code === 'not-allowed' || code === 'NotAllowedError') return tr('errNotAllowed');
+  if (code === 'language-unavailable' || code === 'voice-unavailable') return tr('errNoVoice');
+  return tr('errSpeech');
+}
 
 export interface SpeakOptions {
   /** 倍率：Web Speech 0.1–10；服务端 0.25–4 */
@@ -87,7 +96,7 @@ export class WebSpeechEngine implements TtsEngine {
     u.onerror = (e) => {
       // cancel() 会触发 canceled/interrupted，是我们自己取消的，不算错误
       if (e.error === 'canceled' || e.error === 'interrupted') return;
-      finish(e.error || 'speech error');
+      finish(speechErrorText(e.error || ''));
     };
     this.current = u;
     // Chrome 偶发 onend 丢失（长句、后台标签）：按字数估个上限，超时当作读完
@@ -161,10 +170,10 @@ export class ServerTtsEngine implements TtsEngine {
         if (my !== this.token) return;
         const a = this.audio;
         a.onended = () => my === this.token && cb.onEnd();
-        a.onerror = () => my === this.token && cb.onError('audio error');
+        a.onerror = () => my === this.token && cb.onError(tr('errAudio'));
         a.src = url;
         a.volume = o.volume;
-        a.play().catch((e: Error) => my === this.token && cb.onError(e.message));
+        a.play().catch((e: Error) => my === this.token && cb.onError(e.name === 'NotAllowedError' ? speechErrorText(e.name) : tr('errAudio')));
       },
       (e: Error) => {
         if (my === this.token) cb.onError(e.message);
