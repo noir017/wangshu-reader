@@ -1,8 +1,8 @@
 {
   "id": "./",
-  "name": "静读天下 Web",
-  "short_name": "静读天下",
-  "description": "静读天下（Moon+ Reader）的网页版：书架、阅读器、网络书库、云同步",
+  "name": "望舒 Wangshu Reader",
+  "short_name": "望舒",
+  "description": "望舒（Wangshu Reader）：网页电子书阅读器，书架、阅读器、网络书库、云同步",
   "lang": "zh-CN",
   "dir": "ltr",
   "start_url": "./",

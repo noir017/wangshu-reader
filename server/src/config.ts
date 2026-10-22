@@ -145,7 +145,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
       timeoutMs: Number(env.MR_PROXY_TIMEOUT_MS ?? 30_000),
       maxRedirects: Number(env.MR_PROXY_MAX_REDIRECTS ?? 10),
       insecureTls: truthy(env.MR_PROXY_INSECURE_TLS, false),
-      userAgent: env.MR_PROXY_USER_AGENT ?? 'Mozilla/5.0 (compatible; MoonReaderWeb/0.1; +opds)',
+      userAgent: env.MR_PROXY_USER_AGENT ?? 'Mozilla/5.0 (compatible; WangshuReader/0.1; +opds)',
     },
     maxConvertBytes: mb(env.MR_MAX_CONVERT_MB, 1024),
     maxUploadBytes: mb(env.MR_MAX_UPLOAD_MB, 4096),

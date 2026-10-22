@@ -360,7 +360,7 @@ export const t = defineMessages({
     font_import_failed: '导入字体失败',
     font_load_failed: '字体“{name}”加载失败，已改用默认字体。{hint}',
     font_ttc_hint: '.ttc 是字体集合，多数浏览器不支持，请先转成 .ttf 或 .otf。',
-    font_sample: '静读天下 Moon+ Reader Aa 123',
+    font_sample: '望舒 Wangshu Reader Aa 123',
     font_delete_confirm: '确认删除字体 {name}?',
     font_server_unavailable: '服务端不可用，无法列出服务端字体',
     // 背景图选择
@@ -753,7 +753,7 @@ export const t = defineMessages({
     font_import_failed: 'Failed to import font',
     font_load_failed: 'Failed to load font "{name}"; using the default font. {hint}',
     font_ttc_hint: '.ttc is a font collection that most browsers cannot load; convert it to .ttf or .otf first.',
-    font_sample: 'Moon+ Reader Aa 123',
+    font_sample: 'Wangshu Reader Aa 123',
     font_delete_confirm: 'Delete font {name}?',
     font_server_unavailable: 'Server unavailable; cannot list server fonts',
     bg_pick_title: 'Background image',

@@ -1,11 +1,11 @@
-# moonreader-web 服务端
+# wangshu-reader 服务端
 
 Node + [Hono](https://hono.dev)。替浏览器做它做不到的事：跨域代理、格式转换/解包、内置 WebDAV、在线朗读、翻译/词典、服务端书库、网页传书、字体目录；同时托管前端静态文件（`dist`）。接口契约见 `shared/api.ts`，功能 ID 见 `docs/spec`。
 
 ## 运行
 
 ```bash
-# 开发（容器里）：tools/rx 'MR_PORT=18090 MR_LIBRARY_DIR=/work/moonreader-web/samples/library nohup npx tsx server/src/index.ts > /tmp/srv.log 2>&1 &'
+# 开发（容器里）：tools/rx 'MR_PORT=18090 MR_LIBRARY_DIR=/work/wangshu-reader/samples/library nohup npx tsx server/src/index.ts > /tmp/srv.log 2>&1 &'
 npm run dev:server          # tsx watch，默认 127.0.0.1:8090
 
 # 部署
@@ -48,7 +48,7 @@ MR_HOST=0.0.0.0 MR_TOKEN=换成长随机串 MR_LIBRARY_DIR=/books npm start
 | `MR_PROXY_TIMEOUT_MS` | `30000` | 空闲超时（连接、等响应头、数据间隔）；前端可用 `X-Proxy-Timeout`（秒，≤300）逐请求覆盖 |
 | `MR_PROXY_MAX_REDIRECTS` | `10` | 最多跟随重定向次数 |
 | `MR_PROXY_INSECURE_TLS` | `0` | 不校验目标 HTTPS 证书（自签名的 Calibre/NAS；原 app 也是全信任） |
-| `MR_PROXY_USER_AGENT` | `Mozilla/5.0 (compatible; MoonReaderWeb/0.1; +opds)` | 默认 UA；前端用 `X-Proxy-User-Agent` 覆盖 |
+| `MR_PROXY_USER_AGENT` | `Mozilla/5.0 (compatible; WangshuReader/0.1; +opds)` | 默认 UA；前端用 `X-Proxy-User-Agent` 覆盖 |
 | `MR_MAX_CONVERT_MB` | `1024` | `/api/convert`、`/api/archive/*` 接收的原文件上限 |
 | `MR_MAX_UPLOAD_MB` | `4096` | 书库上传、`/dav` PUT 的单文件上限，`0` 不限 |
 | `MR_MAX_EXTRACT_MB` | `4096` | 压缩包解开后总大小上限（防压缩炸弹） |
@@ -97,7 +97,7 @@ tools/rx 'npx tsc -p server/tsconfig.json --noEmit'
 tools/rx 'npx esbuild server/src/index.ts --bundle --platform=node --format=esm --packages=external --outfile=/tmp/srv-build/index.mjs'
 ```
 
-测试里的 Edge 朗读用本地 WebSocket 替身，DJVU/espeak 用替身脚本（`MR_BIN_*`）。需要真实样本的用例在样本不存在时自动跳过：`samples/rar/*.rar`（RAR 压缩样本，无法程序生成）、`samples/chm/*.chm`（`samples/` 不进 git，在容器 `/work/moonreader-web/samples`）。联调用的样例书库：`npx tsx server/scripts/make-sample-library.ts <目录>`。
+测试里的 Edge 朗读用本地 WebSocket 替身，DJVU/espeak 用替身脚本（`MR_BIN_*`）。需要真实样本的用例在样本不存在时自动跳过：`samples/rar/*.rar`（RAR 压缩样本，无法程序生成）、`samples/chm/*.chm`（`samples/` 不进 git，在容器 `/work/wangshu-reader/samples`）。联调用的样例书库：`npx tsx server/scripts/make-sample-library.ts <目录>`。
 
 ## 已知限制
 

@@ -2,7 +2,7 @@
 // 这些本来就该是英文；其余英文词出现在 zh 文案或 JSX 里就算漏翻。
 export const ALLOWED_LATIN: string[] = [
   // 品牌、产品、服务
-  'Moon+ Reader Pro', 'Moon+ Reader', 'Moon+', 'Web', 'Readwise', 'Dropbox', 'Google Drive', 'Google Books', 'Google', 'Open Library',
+  'Wangshu Reader', 'Moon+ Reader Pro', 'Moon+ Reader', 'Moon+', 'Web', 'Readwise', 'Dropbox', 'Google Drive', 'Google Books', 'Google', 'Open Library',
   'Project Gutenberg', 'Gutenberg', 'Feedbooks', 'Wikipedia', 'Wiktionary', 'Microsoft Edge', 'Edge', 'eSpeak', 'espeak-ng', 'DeepL', 'Bing', 'Baidu', 'Youdao',
   'Calibre', 'Stanza', 'Android', 'iOS', 'Windows', 'Chrome', 'Chromium', 'Safari', 'Firefox', 'Unicode', 'Zdic', 'Dict.cn', 'MyMemory', 'LibreTranslate', 'Lingva',
   'Apple', 'Web Speech', 'OAuth',

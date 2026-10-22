@@ -49,9 +49,9 @@ export async function postHighlights(items: ReadwiseHighlight[], cfg: ReadwiseCo
   }
 }
 
-/** token 变更时发的测试高亮（原 app 同款内容） */
+/** token 变更时发的测试高亮（同原 app，只把作者换成本应用的名字） */
 export function sendTestHighlight(cfg: ReadwiseConfig, fetchImpl?: typeof fetch): Promise<void> {
-  return postHighlights([{ title: 'test', author: 'moonreader', text: 'test highlight', note: 'test note' }], cfg, fetchImpl);
+  return postHighlights([{ title: 'test', author: 'Wangshu Reader', text: 'test highlight', note: 'test note' }], cfg, fetchImpl);
 }
 
 /** 标注 → Readwise 高亮；书签、没有原文的不分享（A.addNote 只在 original 非空时发） */

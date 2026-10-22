@@ -28,7 +28,7 @@ function wav(ms = 250): Buffer {
 
 async function fakeTtsServer(page: Page, features: Record<string, boolean>) {
   const posts: any[] = [];
-  await page.route('**/api/health', (r) => r.fulfill({ json: { ok: true, name: 'moonreader-web-server', version: 't', features } }));
+  await page.route('**/api/health', (r) => r.fulfill({ json: { ok: true, name: 'wangshu-reader-server', version: 't', features } }));
   await page.route('**/api/tts/voices', (r) => r.fulfill({ json: { voices: [{ id: 'zh-XiaoxiaoNeural', name: '晓晓', lang: 'zh-CN', engine: 'edge' }] } }));
   await page.route('**/api/tts', async (r) => {
     posts.push(r.request().postDataJSON());

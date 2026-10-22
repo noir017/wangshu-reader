@@ -23,7 +23,7 @@ const pngSize = (b: Buffer) => ({ w: b.readUInt32BE(16), h: b.readUInt32BE(20) }
 test('manifest：必填字段、图标尺寸、file_handlers、share_target，Chromium 解析无错误', async ({ browser }) => {
   const { ctx, page } = await openApp(browser, shape);
   const m = (await (await fetch(`${srv.url}/manifest.webmanifest`)).json()) as any;
-  expect(m).toMatchObject({ name: '静读天下 Web', display: 'standalone', start_url: './', scope: './' });
+  expect(m).toMatchObject({ name: '望舒 Wangshu Reader', short_name: '望舒', display: 'standalone', start_url: './', scope: './' });
   const icons = m.icons as { src: string; sizes: string; type: string; purpose?: string }[];
   for (const [size, purpose] of [['192x192', 'any'], ['512x512', 'any'], ['512x512', 'maskable']] as const) {
     const ic = icons.find((i) => i.sizes === size && i.purpose === purpose);
@@ -52,7 +52,7 @@ test('service worker：注册、接管页面、断网后仍能打开应用并读
   await page.evaluate(() => navigator.serviceWorker.ready);
   await expect.poll(() => page.evaluate(async () => (await navigator.serviceWorker.getRegistration())?.active?.state)).toBe('activated');
   // 页面发给 SW 的资源清单被缓存（首次访问时页面还没被接管）
-  await expect.poll(() => page.evaluate(async () => (await (await caches.open('mr-v1-shell')).keys()).map((r) => new URL(r.url).pathname)), { timeout: 15_000 }).toEqual(expect.arrayContaining([expect.stringMatching(/\/assets\/index-.*\.js$/)]));
+  await expect.poll(() => page.evaluate(async () => (await (await caches.open('mr-v2-shell')).keys()).map((r) => new URL(r.url).pathname)), { timeout: 15_000 }).toEqual(expect.arrayContaining([expect.stringMatching(/\/assets\/index-.*\.js$/)]));
   // 导入一本书，再断网刷新
   const epub = { name: '离线书.epub', mimeType: 'application/epub+zip', buffer: await makeEpub('离线书', '离线作者') };
   await page.goto(appUrl(shape, '#/shelf'));

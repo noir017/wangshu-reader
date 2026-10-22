@@ -19,7 +19,7 @@ export function renderTransferPage(cfg: TransferPageConfig): string {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Moon+ Reader Web · 传书</title>
+<title>望舒 · 网页传书</title>
 <style>
 :root{--bg:#f4f1ea;--card:#fff;--fg:#2b2b2b;--sub:#777;--line:#e2ddd0;--accent:#2f7d6d;--accent-fg:#fff;--bad:#c0392b}
 @media (prefers-color-scheme:dark){:root{--bg:#1d1f21;--card:#292c2f;--fg:#e8e6e1;--sub:#9a9a9a;--line:#3a3e42;--accent:#4aa593;--accent-fg:#102a24;--bad:#e06c5c}}
@@ -81,7 +81,7 @@ var cfg=JSON.parse(document.getElementById('cfg').textContent);
 // 界面语言跟 app 设置走（同源时读得到）：默认简体中文，只有在 app 里手动选了英文才用英文
 var zh=true;try{var st=JSON.parse(localStorage.getItem('mr.settings.v1')||'{}');zh=!(st&&st.app&&st.app.language==='en')}catch(e){}
 var T={
- title:zh?'Moon+ Reader Web · 网页传书':'Moon+ Reader Web · Transfer',
+ title:zh?'望舒 · 网页传书':'Wangshu Reader · Transfer',
  drop:zh?'把电子书拖到这里':'Drop books here',
  dropSub:zh?'或点击选择文件（可多选）':'or click to choose files',
  files:zh?'已上传的文件':'Uploaded files',

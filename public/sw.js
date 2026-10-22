@@ -1,11 +1,12 @@
-// 静读天下 Web 的 service worker（MISC-008）：离线打开应用壳 + PWA「分享目标」接收文件。
+// 望舒（Wangshu Reader）的 service worker（MISC-008）：离线打开应用壳 + PWA「分享目标」接收文件。
 // 只在 http(s) 部署时由 src/library/pwa.ts 注册；file:// 单文件版不注册。
 // 缓存策略：
 //  - /api、/dav、/transfer 一律不拦截（数据永远走网络，鉴权与 CORS 由服务端处理）
 //  - 页面导航：网络优先，断网时回退到缓存的 index.html（IndexedDB 里的书照常能读）
 //  - assets/、icons/（文件名带 hash，内容不变）：缓存优先
 //  - 其余同源 GET（manifest 等）：网络优先，失败回退缓存
-const VERSION = 'mr-v1';
+// 改名为望舒时升到 v2：activate 会删掉旧的 mr-v1-shell（里面是旧品牌的 index.html/manifest）
+const VERSION = 'mr-v2';
 const SHELL = `${VERSION}-shell`;
 const SHARE = 'mr-share';
 const SCOPE = new URL(self.registration.scope);

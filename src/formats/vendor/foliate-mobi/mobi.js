@@ -2,7 +2,7 @@
 // Upstream commit 78914aef4466eb960965702401634c2cb348e9b1 (2026-05-01). MIT License, see ./LICENSE.
 // Copyright (c) 2022 John Factotum
 //
-// Local modifications (moonreader-web; everything else is verbatim upstream):
+// Local modifications (wangshu-reader; everything else is verbatim upstream):
 //  1. MOBI.open() split into MOBI.openHeaders() (parse PDB/MOBI headers only, cheap — used by probe) + open().
 //  2. MOBI.encryption exposes the PalmDOC "encryption" field of the first header (DRM detection).
 //  3. Section objects (MOBI6 and KF8) gain loadText(): the raw decoded HTML of the section, so the caller can

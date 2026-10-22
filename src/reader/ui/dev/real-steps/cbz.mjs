@@ -1,7 +1,7 @@
 // 固定版式（真实引擎 + 真实 CBZ 解析）：缩略图条、PDF/漫画选项、页码、翻页
 import { readFileSync } from 'node:fs';
 export default async function cbz({ page, base, shot, log }) {
-  const bytes = [...readFileSync('/work/moonreader-web/samples/library/Comics/demo.cbz')];
+  const bytes = [...readFileSync('/work/wangshu-reader/samples/library/Comics/demo.cbz')];
   const id = await page.evaluate(async (bytes) => {
     const { probeBook } = await import('/src/formats/index.ts');
     const { fileFingerprint } = await import('/src/storage/fingerprint.ts');

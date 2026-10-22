@@ -4,7 +4,8 @@ import { defineMessages } from '@/core/i18n';
 export const t = defineMessages({
   zh: {
     // 框架
-    appTitle: '静读天下专业版',
+    appTitle: '望舒',
+    appSubtitle: 'Wangshu Reader',
     tabRecent: '最近阅读',
     tabShelf: '我的书架',
     tabFiles: '我的文件',
@@ -337,9 +338,9 @@ export const t = defineMessages({
     importPoFailed: '无法识别该进度文件',
     // 关于
     aboutTitle: '软件说明',
-    aboutBody: '静读天下专业版 Web 版：在浏览器里阅读 EPUB、PDF、MOBI、TXT 等电子书，书架、标注、进度可通过 WebDAV 在多设备间同步。',
+    aboutBody: '望舒：在浏览器里阅读 EPUB、PDF、MOBI、TXT 等电子书，书架、标注、进度可通过 WebDAV 在多设备间同步。',
     aboutVersion: '版本',
-    aboutNote: '这是对 Moon+ Reader Pro 的非官方 Web 复刻。',
+    aboutNote: '致谢：界面与功能参考 Moon+ Reader（静读天下）。',
     aboutFeatures: '主要功能',
     // 文件页
     filesTitle: '我的文件',
@@ -509,7 +510,8 @@ export const t = defineMessages({
     mrproConfirm: '导入原版备份「{name}」？只会添加/合并，不会清空本机已有数据。',
   },
   en: {
-    appTitle: 'Moon+ Reader Pro',
+    appTitle: 'Wangshu Reader',
+    appSubtitle: '望舒',
     tabRecent: 'Recent',
     tabShelf: 'My Shelf',
     tabFiles: 'My Files',
@@ -827,9 +829,9 @@ export const t = defineMessages({
     importPoOk: 'Reading progress imported',
     importPoFailed: 'Unrecognized progress file',
     aboutTitle: 'About',
-    aboutBody: 'Moon+ Reader Pro for the web: read EPUB, PDF, MOBI, TXT and more in the browser; shelf, annotations and progress sync across devices via WebDAV.',
+    aboutBody: 'Wangshu Reader: read EPUB, PDF, MOBI, TXT and more in the browser; shelf, annotations and progress sync across devices via WebDAV.',
     aboutVersion: 'Version',
-    aboutNote: 'An unofficial web re-creation of Moon+ Reader Pro.',
+    aboutNote: 'Thanks to Moon+ Reader, whose interface and features this app is modeled on.',
     aboutFeatures: 'Features',
     filesTitle: 'My Files',
     filesNeedServer: 'The Files page browses the server\'s library folder. The server has no library folder configured (MR_LIBRARY_DIR) or is unreachable.',

@@ -86,7 +86,7 @@ export function createApp(config: ServerConfig): Hono {
   const davAuth: MiddlewareHandler = async (c, next) => {
     if (!config.token || isAuthorized(config, c)) return next();
     // WebDAV 客户端靠 WWW-Authenticate 知道要用 Basic 认证（用户名随意，密码填 MR_TOKEN）
-    return c.json({ error: 'unauthorized' }, 401, { 'WWW-Authenticate': 'Basic realm="Moon+ Reader Web", charset="UTF-8"' });
+    return c.json({ error: 'unauthorized' }, 401, { 'WWW-Authenticate': 'Basic realm="Wangshu Reader", charset="UTF-8"' });
   };
   app.use('/dav', davAuth);
   app.use('/dav/*', davAuth);
@@ -96,7 +96,7 @@ export function createApp(config: ServerConfig): Hono {
   app.get('/api/health', (c) => {
     const body: HealthResponse = {
       ok: true,
-      name: 'moonreader-web-server',
+      name: 'wangshu-reader-server',
       version: config.version,
       // 代理是否可用取决于调用方（本机 / 带令牌），所以逐请求计算
       features: { ...config.features, proxy: proxy.proxyAllowed(config, c) },
@@ -130,7 +130,7 @@ if (process.argv[1] && (path.resolve(process.argv[1]) === fileURLToPath(import.m
   const app = createApp(config);
   void cleanStaleTmp(config.tmpDir);
   const server = serve({ fetch: app.fetch, hostname: config.host, port: config.port }, (info) => {
-    console.log(`[server] listening on http://${info.address}:${info.port} static=${config.staticDir ?? '-'} data=${config.dataDir}`);
+    console.log(`[server] wangshu-reader-server listening on http://${info.address}:${info.port} static=${config.staticDir ?? '-'} data=${config.dataDir}`);
     console.log(
       `[server] features: ${Object.entries(config.features)
         .map(([k, v]) => `${k}=${k === 'proxy' ? `${v ? config.proxy.mode : 'off'}` : v ? 'on' : 'off'}`)

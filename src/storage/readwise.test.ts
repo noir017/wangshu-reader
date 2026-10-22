@@ -47,7 +47,7 @@ describe('Readwise', () => {
     expect(url).toBe('https://readwise.io/api/v2/highlights/');
     expect(init.method).toBe('POST');
     expect(init.headers).toMatchObject({ Authorization: 'Token tk', 'Content-Type': 'application/json;charset=UTF-8' });
-    expect(JSON.parse(init.body as string)).toEqual({ highlights: [{ title: 'test', author: 'moonreader', text: 'test highlight', note: 'test note' }] });
+    expect(JSON.parse(init.body as string)).toEqual({ highlights: [{ title: 'test', author: 'Wangshu Reader', text: 'test highlight', note: 'test note' }] });
   });
 
   it('非 200 抛出带状态码与服务端消息的错误', async () => {

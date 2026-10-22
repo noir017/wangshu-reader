@@ -1,5 +1,5 @@
 // 真实样书冒烟测试：samples/books 下的每个文件都跑一遍 probe + open，再按文件名核对几项关键内容。
-// 样书目录默认 <项目根>/samples/books（容器里是 /work/moonreader-web/samples/books，不进 git）；不存在就整体跳过。
+// 样书目录默认 <项目根>/samples/books（容器里是 /work/wangshu-reader/samples/books，不进 git）；不存在就整体跳过。
 //   MR_SAMPLES_DIR=<目录>  换目录；MR_REAL_BOOKS=0  关闭
 // 需要服务端才能打开的格式（cb7/7z/rar/chm/djvu）不在这里测（见 convert.test.ts 的 mock 测试）。
 import './testing/dom-shim';

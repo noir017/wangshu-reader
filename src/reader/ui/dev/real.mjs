@@ -4,7 +4,7 @@
 import { chromium } from '@playwright/test';
 
 const base = process.argv[2] ?? 'http://127.0.0.1:5237';
-const out = process.argv[3] ?? '/work/moonreader-web/out/ui-shots';
+const out = process.argv[3] ?? '/work/wangshu-reader/out/ui-shots';
 const browser = await chromium.launch({ executablePath: process.env.CHROME_BIN ?? '/usr/bin/chromium' });
 const ctx = await browser.newContext({ viewport: { width: 412, height: 915 }, locale: 'zh-CN', deviceScaleFactor: 1, hasTouch: false });
 const page = await ctx.newPage();

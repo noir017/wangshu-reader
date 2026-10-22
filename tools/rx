@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 # 在 oraclea2 的 moonreader-dev 容器里执行 shell 命令（默认先 tools/sync 推一次源码）。
-# 用法：tools/rx [--no-sync] [-C <相对 /work/moonreader-web 的目录>] '<命令>'
+# 用法：tools/rx [--no-sync] [-C <相对 /work/wangshu-reader 的目录>] '<命令>'
 #   tools/rx 'npm run typecheck'
 #   tools/rx --no-sync -C /work/analysis 'grep -rl tts jadx/sources | head'   # -C 以 / 开头则为容器内绝对路径
 # 命令经 stdin 交给容器内 bash -l，不用再套一层引号。
 set -euo pipefail
 here="$(cd "$(dirname "$0")/.." && pwd)"
-sync=1; dir=/work/moonreader-web
+sync=1; dir=/work/wangshu-reader
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --no-sync) sync=0; shift ;;
-    -C) [[ "$2" == /* ]] && dir="$2" || dir="/work/moonreader-web/$2"; shift 2 ;;
+    -C) [[ "$2" == /* ]] && dir="$2" || dir="/work/wangshu-reader/$2"; shift 2 ;;
     --) shift; break ;;
     *) break ;;
   esac

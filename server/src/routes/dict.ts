@@ -11,7 +11,7 @@ import { httpError } from '../util/http';
 import { escapeHtml as esc, sanitizeHtml } from '../util/text';
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36';
-const API_UA = 'moonreader-web/0.1 (+https://github.com/; dictionary lookup)';
+const API_UA = 'wangshu-reader/0.1 (+https://github.com/; dictionary lookup)';
 
 interface Entry {
   html: string;

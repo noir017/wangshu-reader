@@ -9,7 +9,7 @@ describe('/api/health', () => {
     const res = await app.request('/api/health');
     expect(res.status).toBe(200);
     const h = await j<HealthResponse>(res);
-    expect(h).toMatchObject({ ok: true, name: 'moonreader-web-server' });
+    expect(h).toMatchObject({ ok: true, name: 'wangshu-reader-server' });
     expect(typeof h.version).toBe('string');
     expect(h.features).toMatchObject({ dav: true, dict: true, translate: true, library: false, upload: false, proxy: true });
     // 7z 是否存在由探测决定，不写死

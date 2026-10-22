@@ -4,7 +4,7 @@
 // 截图一律放 out/reader-accept/（sync 不会删，也不会被别人的运行清空）。
 import { expect, type Page } from '@playwright/test';
 
-export const SAMPLES = process.env.MR_SAMPLES_DIR ?? '/work/moonreader-web/samples/books';
+export const SAMPLES = process.env.MR_SAMPLES_DIR ?? '/work/wangshu-reader/samples/books';
 export const SHOTS = 'out/reader-accept';
 export const shot = (page: Page, name: string) => page.screenshot({ path: `${SHOTS}/${name}.png` });
 
