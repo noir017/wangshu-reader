@@ -1,7 +1,6 @@
 // 服务端书库目录（/api/library/*，shared/api.ts）的客户端。服务端不可用时抛 ServerUnavailableError，由页面置灰。
 import type { HealthResponse, LibraryEntry, LibraryListResponse } from '@shared/api';
-import { apiFetch, apiJson, apiPostJson, hasServer, responseErrorText, serverBase } from '@/core/server';
-import { appSettings } from '@/core/app-settings';
+import { apiFetch, apiJson, apiPostJson, hasServer, responseErrorText, serverBase, serverToken } from '@/core/server';
 import { serverFetch } from '@/storage/http';
 
 export type LibraryAvailability = { ok: true } | { ok: false; reason: 'no-server' | 'unreachable' | 'no-library'; /** 连不上时服务端/网络给的原因（如跨站请求被拒、令牌错误） */ message?: string };
@@ -33,7 +32,7 @@ export async function uploadFiles(path: string, files: File[]): Promise<LibraryE
 
 /** <img>/<a> 直链（带 ?token=） */
 function directUrl(route: string, params: Record<string, string>): string {
-  const token = appSettings.get().serverToken;
+  const token = serverToken();
   const q = new URLSearchParams(params);
   if (token) q.set('token', token);
   return `${serverBase()}${route}?${q}`;
