@@ -10,3 +10,10 @@ playwright-report/
 *.tsbuildinfo
 /samples/
 /server/data/
+
+# 内部开发文件：只在本地，不进公开仓库
+/AGENTS.md
+/tools/
+/docs/spec/
+/docs/acceptance/
+/.claude/

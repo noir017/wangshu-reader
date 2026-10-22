@@ -38,7 +38,6 @@ export function AboutPage() {
             </div>
           ))}
         </div>
-        <div className={`${s.pad} ${s.dim}`} style={{ fontSize: 12.5 }}>{t('aboutNote')}</div>
       </div>
     </>
   );

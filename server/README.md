@@ -1,11 +1,10 @@
 # wangshu-reader 服务端
 
-Node + [Hono](https://hono.dev)。替浏览器做它做不到的事：跨域代理、格式转换/解包、内置 WebDAV、在线朗读、翻译/词典、服务端书库、网页传书、字体目录；同时托管前端静态文件（`dist`）。接口契约见 `shared/api.ts`，功能 ID 见 `docs/spec`。
+Node + [Hono](https://hono.dev)。替浏览器做它做不到的事：跨域代理、格式转换/解包、内置 WebDAV、在线朗读、翻译/词典、服务端书库、网页传书、字体目录；同时托管前端静态文件（`dist`）。接口契约见 `shared/api.ts`。
 
 ## 运行
 
 ```bash
-# 开发（容器里）：tools/rx 'MR_PORT=18090 MR_LIBRARY_DIR=/work/wangshu-reader/samples/library nohup npx tsx server/src/index.ts > /tmp/srv.log 2>&1 &'
 npm run dev:server          # tsx watch，默认 127.0.0.1:8090
 
 # 部署
@@ -91,13 +90,12 @@ MR_HOST=0.0.0.0 MR_TOKEN=换成长随机串 MR_LIBRARY_DIR=/books npm start
 ## 测试
 
 ```bash
-tools/rx 'npx vitest run server'                    # 全部（不需要外网）
-tools/rx 'MR_TEST_NET=1 npx vitest run server'      # 加跑联网用例：真实 OPDS 代理、Edge 朗读、Google 翻译、有道/Wiktionary
-tools/rx 'npx tsc -p server/tsconfig.json --noEmit'
-tools/rx 'npx esbuild server/src/index.ts --bundle --platform=node --format=esm --packages=external --outfile=/tmp/srv-build/index.mjs'
+npx vitest run server                    # 全部（不需要外网）
+MR_TEST_NET=1 npx vitest run server      # 加跑联网用例：真实 OPDS 代理、Edge 朗读、Google 翻译、有道/Wiktionary
+npx tsc -p server/tsconfig.json --noEmit
 ```
 
-测试里的 Edge 朗读用本地 WebSocket 替身，DJVU/espeak 用替身脚本（`MR_BIN_*`）。需要真实样本的用例在样本不存在时自动跳过：`samples/rar/*.rar`（RAR 压缩样本，无法程序生成）、`samples/chm/*.chm`（`samples/` 不进 git，在容器 `/work/wangshu-reader/samples`）。联调用的样例书库：`npx tsx server/scripts/make-sample-library.ts <目录>`。
+测试里的 Edge 朗读用本地 WebSocket 替身，DJVU/espeak 用替身脚本（`MR_BIN_*`）。需要真实样本的用例在样本不存在时自动跳过：`samples/rar/*.rar`（RAR 压缩样本，无法程序生成）、`samples/chm/*.chm`（`samples/` 不进 git）。联调用的样例书库：`npx tsx server/scripts/make-sample-library.ts <目录>`。
 
 ## 已知限制
 
