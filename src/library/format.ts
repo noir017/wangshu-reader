@@ -55,3 +55,8 @@ export function triggerDownload(blob: Blob, name: string): void {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
+
+/** 把服务端 401 的原始报错补上「去哪填令牌」的提示（apiFetch 的报错形如「服务端 /api/x 出错：unauthorized」） */
+export function explainServerError(msg: string, hint: string): string {
+  return /unauthorized|\b401\b/i.test(msg) ? `${msg}\n${hint}` : msg;
+}

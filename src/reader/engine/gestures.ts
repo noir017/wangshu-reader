@@ -15,7 +15,7 @@ const FLING_MIN_SPEED = 120; // px/s
 const DECEL = 2400; // px/s²，惯性滚动减速度
 const EDGE_ZONE = 40; // 边缘亮度/字号滑动区宽度
 
-type Mode = 'pending' | 'scroll' | 'flip' | 'edge' | 'native' | 'hswipe' | 'vswipe' | 'pinch' | 'longpressed' | 'auto' | 'ignore';
+type Mode = 'pending' | 'scroll' | 'flip' | 'edge' | 'edgeH' | 'native' | 'hswipe' | 'vswipe' | 'pinch' | 'longpressed' | 'auto' | 'ignore';
 
 interface Ptr {
   id: number;
@@ -27,6 +27,8 @@ interface Ptr {
   y: number;
   frame?: ChapterFrame;
   target?: Element | null;
+  /** 按下时已有选区（鼠标：原生行为会在 mousedown 时清掉选区，抬起时已经看不出来了） */
+  hadSelection?: boolean;
   samples: Array<{ t: number; x: number; y: number }>;
 }
 
@@ -54,14 +56,19 @@ export class Gestures {
   private wheelAcc = 0;
   private wheelLock = 0;
   private edgeStartX = 0;
+  private edgeStartY = 0;
   private cleanups: Array<() => void> = [];
   private lastScrollT = 0;
+  /** 鼠标点击在文字上时，tap 要等一个双击窗口再发（桌面双击/三击是选词选段，不能顺带翻页） */
+  private pendingTap?: ReturnType<typeof setTimeout>;
+  private lastMouseClick = { t: 0, x: 0, y: 0 };
 
   constructor(private e: Engine) {}
 
   destroy(): void {
     this.stopFling();
     clearTimeout(this.longTimer);
+    clearTimeout(this.pendingTap);
     for (const c of this.cleanups) c();
     this.cleanups = [];
   }
@@ -121,6 +128,7 @@ export class Gestures {
       y: pt.y,
       frame,
       target: ev.target as Element | null,
+      hadSelection: !!e.selection.get(),
       samples: [{ t: ev.timeStamp, x: pt.x, y: pt.y }],
     };
     if (this.ptrs.size === 0) {
@@ -132,6 +140,7 @@ export class Gestures {
       }
       this.mode = e.autoscroll.engaged ? 'auto' : 'pending';
       this.edgeStartX = pt.x;
+      this.edgeStartY = pt.y;
       // 点击正文即把焦点给阅读区，键盘事件才能收到
       if (ev.pointerType === 'mouse') e.root?.focus({ preventScroll: true });
     } else if (this.mode !== 'ignore') {
@@ -146,7 +155,9 @@ export class Gestures {
     }
     this.ptrs.set(p.id, p);
     if (this.ptrs.size === 1 && this.mode === 'pending') {
-      if (ev.pointerType !== 'mouse') {
+      // 鼠标的长按只用于图片（长按看图，longTapImageFullScreen）：文字上按住拖动是原生选择，不能抢
+      const onImage = !!(ev.target as Element | null)?.closest?.('img,image,svg');
+      if (ev.pointerType !== 'mouse' || onImage) {
         this.longTimer = setTimeout(() => this.longPress(p), Math.max(50, cs.longTapInterval * 1000));
       }
     }
@@ -187,6 +198,9 @@ export class Gestures {
       case 'edge':
         e.emit('verticalDrag', { startX: this.edgeStartX, dy, phase: 'move' });
         return;
+      case 'edgeH':
+        e.emit('verticalDrag', { startX: this.edgeStartX, startY: this.edgeStartY, dy: dx, axis: 'x', phase: 'move' });
+        return;
       case 'pending':
         break;
       default:
@@ -214,6 +228,14 @@ export class Gestures {
       e.emit('verticalDrag', { startX: p.x0, dy, phase: 'move' });
       return;
     }
+    // 上/下边沿横向擦动（亮度/字号边选了上或下时）
+    if (!vertical && this.inSlideEdgeH(p.y0)) {
+      this.mode = 'edgeH';
+      this.edgeStartX = p.x0;
+      this.edgeStartY = p.y0;
+      e.emit('verticalDrag', { startX: p.x0, startY: p.y0, dy: dx, axis: 'x', phase: 'move' });
+      return;
+    }
     if (e.mode === 'scroll') {
       if (vertical && !fs.disableMove) {
         this.mode = 'scroll';
@@ -239,6 +261,7 @@ export class Gestures {
     clearTimeout(this.longTimer);
     if (this.mode === 'flip') this.e.animator.dragEnd(0, 0, true);
     if (this.mode === 'edge') this.e.emit('verticalDrag', { startX: this.edgeStartX, dy: p.y - p.y0, phase: 'end' });
+    if (this.mode === 'edgeH') this.e.emit('verticalDrag', { startX: this.edgeStartX, startY: this.edgeStartY, dy: p.x - p.x0, axis: 'x', phase: 'end' });
     if (this.mode === 'scroll') this.e.emitRelocate(true);
     this.ptrs.delete(ev.pointerId);
     if (!this.ptrs.size) this.mode = 'pending';
@@ -298,6 +321,9 @@ export class Gestures {
         return;
       case 'edge':
         e.emit('verticalDrag', { startX: this.edgeStartX, dy, phase: 'end' });
+        return;
+      case 'edgeH':
+        e.emit('verticalDrag', { startX: this.edgeStartX, startY: this.edgeStartY, dy: dx, axis: 'x', phase: 'end' });
         return;
       case 'hswipe':
       case 'vswipe': {
@@ -366,8 +392,9 @@ export class Gestures {
       }
       const img = t.closest('img,image,svg');
       if (img && (img.tagName.toLowerCase() === 'img' || img.tagName.toLowerCase() === 'image' || img.querySelector('image'))) {
-        // 长按图片受 longTapImageFullScreen 控制；单击也派发，UI 自行决定是否看图
-        if (!long || e.imageLongTap()) {
+        // 原版（ActivityTxt.doLongTimeTapEvent）：单击图片 = 普通点击（翻页/呼出菜单），长按才全屏看图（longTapImageFullScreen，默认开）。
+        // 整页大图（封面、漫画页）上单击若直接看图，就没法点击翻页了。该项关掉后改为单击看图，否则图片就打不开了
+        if (long === e.imageLongTap()) {
           e.openImage(f, img);
           return true;
         }
@@ -385,16 +412,67 @@ export class Gestures {
     return false;
   }
 
+  /** 鼠标点的位置是否正好在某个字上（点空白处 caret 也会吸附到最近的文字，所以还要核对字符矩形） */
+  private onGlyph(p: Ptr, pt: { x: number; y: number }): boolean {
+    const f = p.frame;
+    if (!f) return false;
+    const o = this.e.toRoot(f, 0, 0);
+    const x = pt.x - o.x;
+    const y = pt.y - o.y;
+    const c = caretAt(f.doc, x, y);
+    if (!c || c.node.nodeType !== 3) return false;
+    const len = c.node.nodeValue?.length ?? 0;
+    const r = f.doc.createRange();
+    try {
+      r.setStart(c.node, Math.max(0, c.offset - 1));
+      r.setEnd(c.node, Math.min(len, c.offset + 1));
+    } catch {
+      return false;
+    }
+    return [...r.getClientRects()].some((b) => x >= b.left - 1 && x <= b.right + 1 && y >= b.top - 1 && y <= b.bottom + 1);
+  }
+
   private tap(p: Ptr, ev: PointerEvent, pt: { x: number; y: number }): void {
     const e = this.e;
-    // 有选区时的点击只用来取消选择
-    if (e.selection.get() && p.type !== 'mouse') {
-      e.selection.set(null);
+    // 鼠标点击间隔用墙钟：ev.timeStamp 相对于事件所在文档的 timeOrigin，两次点击落在不同 iframe 里时不可比
+    const now = p.type === 'mouse' ? Date.now() : ev.timeStamp;
+    if (p.type !== 'mouse') {
+      // 触屏：有选区时的点击只用来取消选择
+      if (e.selection.get()) {
+        e.selection.set(null);
+        return;
+      }
+    } else {
+      // 鼠标：双击/三击落在文字上是原生选词/选段，不能顺带触发点击区动作（翻页、呼出菜单）
+      const glyph = this.onGlyph(p, pt);
+      const near = Math.hypot(pt.x - this.lastMouseClick.x, pt.y - this.lastMouseClick.y) < 6;
+      const multi = glyph && near && now - this.lastMouseClick.t < DOUBLE_TAP_MS;
+      this.lastMouseClick = { t: now, x: pt.x, y: pt.y };
+      clearTimeout(this.pendingTap);
+      this.pendingTap = undefined;
+      if (multi) {
+        if (p.frame) e.selection.fixNativeWord(p.frame, pt.x, pt.y);
+        e.emit('doubleTap', this.norm(pt));
+        return;
+      }
+      // 按下时有选区：这次点击只用来取消选择（原生行为在 mousedown 时已把选区清掉，抬起时看不出来了）
+      if (p.hadSelection) {
+        e.selection.set(null);
+        return;
+      }
+      if (this.hit(p, pt, false)) return;
+      const n = this.norm(pt);
+      if (glyph) {
+        // 点在字上：等一个双击窗口，没有第二次点击才算单击
+        this.pendingTap = setTimeout(() => {
+          this.pendingTap = undefined;
+          e.emit('tap', n);
+        }, DOUBLE_TAP_MS);
+      } else e.emit('tap', n);
       return;
     }
     if (this.hit(p, pt, false)) return;
     const n = this.norm(pt);
-    const now = ev.timeStamp;
     e.emit('tap', n);
     if (now - this.lastTap.t < DOUBLE_TAP_MS && Math.hypot(pt.x - this.lastTap.x, pt.y - this.lastTap.y) < 30) {
       e.emit('doubleTap', n);
@@ -421,11 +499,19 @@ export class Gestures {
     return pt.x < c.leftEdge || pt.x > this.e.boxW - c.rightEdge || pt.y < c.topEdge || pt.y > this.e.boxH - c.bottomEdge;
   }
 
-  /** 起点是否落在亮度/字号的边缘滑动区（左右两条边；上下边不是竖滑区） */
+  /** 起点是否落在亮度/字号的竖滑区（左/右边沿） */
   private inSlideEdge(x0: number): boolean {
     const c = controlSettings.get();
     const W = this.e.boxW;
     const inside = (edge: number) => (edge === 0 ? x0 < EDGE_ZONE : edge === 1 ? x0 > W - EDGE_ZONE : false);
+    return (c.adjustBrightness && inside(c.brightnessEdge)) || (c.adjustFontSizeAtSlide && inside(c.fontsizeEdge));
+  }
+
+  /** 起点是否落在亮度/字号的横擦区（上/下边沿，原 brightness_edge/fontsize_edge = 2/3） */
+  private inSlideEdgeH(y0: number): boolean {
+    const c = controlSettings.get();
+    const H = this.e.boxH;
+    const inside = (edge: number) => (edge === 2 ? y0 < EDGE_ZONE : edge === 3 ? y0 > H - EDGE_ZONE : false);
     return (c.adjustBrightness && inside(c.brightnessEdge)) || (c.adjustFontSizeAtSlide && inside(c.fontsizeEdge));
   }
 

@@ -27,6 +27,8 @@ export function SpeedRead() {
   const startedAt = useRef(Date.now());
   const readTokens = useRef(0);
   const startOffset = useRef(0);
+  /** 一屏大约多少词：速读时按它把读过的词数折算成页数，计入统计卡片的页数 */
+  const wordsPerPage = useRef(0);
 
   const chunks = useMemo(() => chunkTokens(tokens, perChunk), [tokens, perChunk]);
   const chunkIdx = Math.min(chunks.length - 1, Math.floor(idx / Math.max(1, perChunk)));
@@ -54,6 +56,10 @@ export function SpeedRead() {
     const sec = loc?.section ?? 0;
     startOffset.current = loc?.locator.offset ?? 0;
     startedAt.current = Date.now();
+    if (loc) {
+      const v = loc.visible;
+      void session.controller.getSectionText(v.section).then((text) => (wordsPerPage.current = countWords(text.slice(v.start, v.end))));
+    }
     void loadSection(sec, startOffset.current).then((ok) => {
       if (!alive) return;
       setLoading(false);
@@ -91,7 +97,8 @@ export function SpeedRead() {
     if (cur) void session.controller.goTo({ section, offset: cur.start });
     const words = readTokens.current;
     const ms = Date.now() - startedAt.current;
-    void addReadingTime(session.bookId, ms, words > 0 ? words : countWords(''));
+    const pages = wordsPerPage.current > 0 ? Math.floor(words / wordsPerPage.current) : 0;
+    void addReadingTime(session.bookId, ms, words, Date.now(), pages);
   }, [cur, section, session]);
 
   useEffect(() => {

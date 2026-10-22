@@ -1,6 +1,10 @@
 // 链接返回栈（TOC-005）：内部链接、目录/搜索跳转前压入当前位置，「返回」弹出并回到那里。
 import { create } from 'zustand';
 import type { Locator } from '@/core/book';
+import { currentLang } from '@/core/i18n';
+import type { ReaderController } from '@/core/reader';
+import { peekLocation } from './safe';
+import { getSectionText } from './section-text';
 
 export interface LinkBackEntry {
   locator: Locator;
@@ -52,4 +56,21 @@ export function linkBackTitle(progress: number | undefined, text: string, cjk: b
   const head = text.replace(/[\n\r\t　]+/g, ' ').trim().slice(0, n);
   const pct = progress === undefined ? '' : `(${(progress * 100).toFixed(1)}%) `;
   return `${pct}${head}...`;
+}
+
+/**
+ * 把引擎当前位置压栈（reader/ui 在拖进度条、换章、跳百分比等「跳走」之前调用）。
+ * 位置同步取，标题先用章节名顶上，随后异步换成「(进度) 当前行前若干字...」
+ */
+export function pushLinkBackHere(controller: ReaderController): void {
+  const loc = peekLocation(controller);
+  if (!loc) return;
+  const cjk = currentLang() === 'zh';
+  pushLinkBack({ locator: loc.locator, title: linkBackTitle(loc.progress, loc.sectionTitle ?? '', cjk) });
+  void getSectionText(controller, loc.locator.section)
+    .then((text) => {
+      const title = linkBackTitle(loc.progress, text.slice(loc.locator.offset, loc.locator.offset + 40), cjk);
+      useLinkBack.setState((s) => ({ stack: s.stack.map((e) => (e.locator === loc.locator ? { ...e, title } : e)) }));
+    })
+    .catch(() => {});
 }

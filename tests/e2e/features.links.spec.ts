@@ -55,7 +55,8 @@ test('内部链接：跳到目标章并压入返回栈，linkback.back 回到原
 test('看图器：点图打开，左右切图，双击放大，Esc 关闭', async ({ page }) => {
   await openDev(page);
   await f(page, 'f.controller.goTo({ section: 1, offset: 0 })');
-  await inFrame(page, '#img1', 1).click();
+  // 原版：长按图片才全屏看图（单击图片是普通点击）
+  await inFrame(page, '#img1', 1).click({ delay: 900 });
   const viewer = page.getByTestId('image-viewer');
   await expect(viewer).toBeVisible();
   await expect(page.getByTestId('viewer-title')).toContainText('1/2');

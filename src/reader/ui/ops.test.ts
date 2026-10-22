@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { Emitter } from '@/core/emitter';
 import type { ReaderLocation } from '@/core/reader';
+import type { ReaderCommands } from '@/core/reader-session';
+import { clearLinkBack, useLinkBack } from '@/features/common/linkback';
 import { goLinkBack, goToProgress, parsePercentInput, percentText, saveLinkBack, sectionCount, stepChapter } from './ops';
 import { resetReaderUi, useReaderUi } from './store';
 import { seekValue } from './components/Bars';
@@ -12,14 +15,16 @@ function loc(section: number, offset = 0): ReaderLocation {
 }
 
 function install(sections: number, at: ReaderLocation) {
-  const controller = { nextSection: vi.fn(), prevSection: vi.fn(), goTo: vi.fn(), getLocation: () => at, next: vi.fn(), prev: vi.fn() };
-  useReaderUi.setState({ session: { book: { kind: 'reflowable', sections: Array.from({ length: sections }) }, controller } as never, loc: at });
-  return controller;
+  const controller = { nextSection: vi.fn(), prevSection: vi.fn(), goTo: vi.fn(), getLocation: () => at, next: vi.fn(), prev: vi.fn(), getSectionText: vi.fn(async () => '正文'.repeat(50)) };
+  const bus = new Emitter<ReaderCommands>();
+  useReaderUi.setState({ session: { book: { kind: 'reflowable', sections: Array.from({ length: sections }) }, controller, bus } as never, loc: at });
+  return Object.assign(controller, { bus });
 }
 
 beforeEach(() => {
   toast.mockClear();
   resetReaderUi();
+  clearLinkBack();
 });
 
 describe('百分比（T.getPercentStr2 / do_go_percent）', () => {
@@ -60,7 +65,7 @@ describe('换章与跳转', () => {
     const c3 = install(3, loc(1, 40));
     expect(await stepChapter(1)).toBe(true);
     expect(c3.nextSection).toHaveBeenCalledOnce();
-    expect(useReaderUi.getState().linkBack).toEqual([{ section: 1, offset: 40 }]);
+    expect(useLinkBack.getState().stack.map((e) => e.locator)).toEqual([{ section: 1, offset: 40 }]);
   });
 
   it('第一章中间往上换章 = 回到本章开头（prevSection）', async () => {
@@ -69,16 +74,16 @@ describe('换章与跳转', () => {
     expect(c.prevSection).toHaveBeenCalledOnce();
   });
 
-  it('回退栈：saveLinkBack 压栈（同位置不重复），goLinkBack 弹出并跳回', async () => {
+  it('回退栈只有 features 那一份：saveLinkBack 压栈（同位置不重复，标题随后补成当前行前若干字），goLinkBack 发 linkback.back', async () => {
     const c = install(5, loc(1, 10));
     saveLinkBack();
     saveLinkBack();
-    expect(useReaderUi.getState().linkBack).toHaveLength(1);
-    await goLinkBack();
-    expect(c.goTo).toHaveBeenCalledWith({ section: 1, offset: 10 });
-    expect(useReaderUi.getState().linkBack).toHaveLength(0);
-    await goLinkBack(); // 空栈：什么都不做
-    expect(c.goTo).toHaveBeenCalledOnce();
+    expect(useLinkBack.getState().stack).toHaveLength(1);
+    await vi.waitFor(() => expect(useLinkBack.getState().stack[0].title).toContain('正文'));
+    const got: unknown[] = [];
+    c.bus.on('linkback.back', (p) => got.push(p));
+    goLinkBack();
+    expect(got).toHaveLength(1);
   });
 
   it('goToProgress 夹在 0..1；固定版式章数 = 页数', async () => {

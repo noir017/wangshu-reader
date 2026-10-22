@@ -93,7 +93,8 @@ export class SelectionManager {
     clearTimeout(this.timer);
     this.timer = setTimeout(() => {
       const sel = frame.win.getSelection();
-      if (!sel || sel.isCollapsed || !sel.rangeCount) {
+      // 只选中了空白（换行、空格）等同于没选
+      if (!sel || sel.isCollapsed || !sel.rangeCount || !sel.toString().trim()) {
         if (this.cur) {
           this.cur = null;
           this.e.emit('selection', null);
@@ -111,11 +112,34 @@ export class SelectionManager {
 
   /** 长按选词（ANNO-001）：CJK 单字，其它语言按单词。pt 为阅读区坐标。成功返回 true */
   selectWordAt(frame: ChapterFrame, rootX: number, rootY: number): boolean {
+    const r = this.wordAt(frame, rootX, rootY);
+    if (!r) return false;
+    this.set(r);
+    return true;
+  }
+
+  /**
+   * 鼠标双击选词的补救：双击 CJK 字的右半边时，Chromium 把光标判在字后，后面若是空格或段尾，原生选词选中的是那个空白
+   * （「这是 GBK」双击「是」选中空格；段末的「尾声」双击「声」选中换行）。原生选区是空白时改成点位下的字；
+   * 只改原生选区，由 onNativeChange 照常去抖上报
+   */
+  fixNativeWord(frame: ChapterFrame, rootX: number, rootY: number): void {
+    const sel = frame.win.getSelection();
+    if (!sel || (sel.rangeCount && sel.toString().trim())) return;
+    const r = this.wordAt(frame, rootX, rootY);
+    const dom = r && frame.text.range(r.start, r.end);
+    if (!dom) return;
+    sel.removeAllRanges();
+    sel.addRange(dom);
+  }
+
+  /** 点位下的词（CJK 单字，其它语言按单词）的章内区间；点在空白处返回 null */
+  private wordAt(frame: ChapterFrame, rootX: number, rootY: number): TextRange | null {
     const o = this.e.toRoot(frame, 0, 0);
     const x = rootX - o.x;
     const y = rootY - o.y;
     const caret = caretAt(frame.doc, x, y);
-    if (!caret) return false;
+    if (!caret) return null;
     let node = caret.node;
     let off = caret.offset;
     if (node.nodeType !== 3) {
@@ -123,33 +147,35 @@ export class SelectionManager {
       const child = node.childNodes[Math.min(off, node.childNodes.length - 1)];
       const w = frame.doc.createTreeWalker(child ?? node, 4);
       const t = w.nextNode();
-      if (!t) return false;
+      if (!t) return null;
       node = t;
       off = 0;
     }
     const text = (node as Text).data;
-    if (!text) return false;
+    if (!text) return null;
     // 点位必须真的压在字上（点空白处不选）
-    const probe = (k: number): boolean => {
+    const probe = (k: number, tol: number): boolean => {
       if (k < 0 || k >= text.length) return false;
       const r = frame.doc.createRange();
       r.setStart(node, k);
       r.setEnd(node, k + 1);
       for (const q of Array.from(r.getClientRects())) {
-        if (x >= q.left - 6 && x <= q.right + 6 && y >= q.top - 4 && y <= q.bottom + 4) return true;
+        if (x >= q.left - tol && x <= q.right + tol && y >= q.top - 4 && y <= q.bottom + 4) return true;
       }
       return false;
     };
+    // 先找严格压住点位的字（caret 可能判在字后：点在「是」右半边时 off 指向后面的空格），再放宽 6px
     let at = off;
-    if (!probe(at)) {
-      if (probe(at - 1)) at -= 1;
-      else return false;
-    }
+    if (probe(at, 0)) at = off;
+    else if (probe(at - 1, 0)) at -= 1;
+    else if (probe(at, 6)) at = off;
+    else if (probe(at - 1, 6)) at -= 1;
+    else return null;
     if (at >= text.length) at = text.length - 1;
     let s = at;
     let en = at + 1;
     const ch = text[at];
-    if (SEP.test(ch)) return false;
+    if (SEP.test(ch)) return null;
     if (!CJK.test(ch)) {
       const seg = (Intl as unknown as { Segmenter?: new (l?: string, o?: object) => { segment(s: string): Iterable<{ index: number; segment: string; isWordLike?: boolean }> } }).Segmenter;
       if (seg) {
@@ -167,8 +193,7 @@ export class SelectionManager {
     }
     const a = frame.text.offsetOfText(node as Text, s);
     const b = frame.text.offsetOfText(node as Text, en);
-    if (a < 0 || b <= a) return false;
-    this.set({ section: frame.section, start: a, end: b });
-    return true;
+    if (a < 0 || b <= a) return null;
+    return { section: frame.section, start: a, end: b };
   }
 }

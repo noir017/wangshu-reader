@@ -1,4 +1,4 @@
-// 同步的触发时机（SYNC-006）：打开书前预检、进入/离开阅读页、页面隐藏、回到书架时读 recent.list。
+// 同步的触发时机（SYNC-006）：打开书前预检、进入/离开阅读页、页面隐藏、阅读中回到前台、回到书架时读 recent.list。
 // 阅读页是别的模块写的，这里不依赖它的任何接口：监听 hash 路由与数据库事件即可。
 import { confirmDialog, toast } from '@/ui';
 import { deviceId, dbEvents, findBooksByFileName, getKV, setKV } from '@/storage/db';
@@ -23,6 +23,8 @@ const ui: SyncUi = {
 };
 
 const checkedAt = new Map<string, number>();
+/** 回到前台时重新拉云端进度的最短间隔（来回切窗口不要每次都请求） */
+const RESUME_CHECK_MS = 30_000;
 const dirtyNotes = new Set<string>();
 
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T | undefined> {
@@ -102,7 +104,14 @@ export function startSyncService(): void {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {
       if (current) void closeSync(current);
-    } else if (!current) {
+    } else if (current) {
+      // 阅读中回到前台（原 doSyncFromCloudOnResume）：别的设备可能已经读到后面了，按打开时的规则再拉一次进度与标注
+      const id = current;
+      if (Date.now() - (checkedAt.get(id) ?? 0) > RESUME_CHECK_MS) {
+        checkedAt.set(id, Date.now());
+        void lateOpenSync(id);
+      }
+    } else {
       void checkCloudRecent();
     }
   });

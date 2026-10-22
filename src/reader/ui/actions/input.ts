@@ -1,6 +1,7 @@
 // 输入分发：把引擎上报的原始事件（tap/longPress/swipe/key/verticalDrag/pinch/link…）翻译成动作。
 // 全部是纯逻辑 + 依赖注入（宿主、容器尺寸、确认框），所以可以用 mock 引擎做单测。
 import type { ReaderEvents } from '@/core/reader';
+import { isTtsActive, openLinkBackHistory, useLinkBack } from '@/features';
 import { ReaderAction, controlSettings, textSettings, screenSettings, type ReaderActionId } from '@/reader/settings';
 import { toast } from '@/ui';
 import { type ActionHost, decideTap, performAction } from './actions';
@@ -11,6 +12,7 @@ import { setBrightness } from '../services/brightness-actions';
 import { MAX_FONT_SIZE, MIN_FONT_SIZE, clampFontSize } from '../settings/options-data';
 import { isAutoActive, pauseOrResume, stopAutoScroll, changeSpeed, onEngineAutoScroll } from '../autoscroll';
 import { uiSettings } from '../ui-settings';
+import { isRtlComic } from '../ops';
 import { useReaderUi } from '../store';
 import { t } from '../messages';
 
@@ -33,14 +35,26 @@ const EDGE_ZONE = 40;
 
 export type EdgeKind = 'brightness' | 'fontsize' | null;
 
-/** 起点落在哪个边缘调节区（只支持左/右边，因为引擎只上报竖向拖动） */
-export function edgeKindAt(xPx: number, width: number): EdgeKind {
+/**
+ * 起点落在哪个边缘调节区。左/右边沿（edge 0/1）是竖向拖动；给了 across（起点纵坐标与阅读区高度）时判断
+ * 上/下边沿（edge 2/3），那是横向擦动（原版 brightness_edge/fontsize_edge 的四个取值）
+ */
+export function edgeKindAt(xPx: number, width: number, across?: { yPx: number; height: number }): EdgeKind {
   const c = controlSettings.get();
-  const inset = c.disableEdgeTouch ? c.leftEdge : 0;
-  const insetR = c.disableEdgeTouch ? c.rightEdge : 0;
-  const inLeft = xPx >= inset && xPx < inset + EDGE_ZONE;
-  const inRight = xPx <= width - insetR && xPx > width - insetR - EDGE_ZONE;
-  const zone = (edge: number) => (edge === 0 ? inLeft : edge === 1 ? inRight : false);
+  let zone: (edge: number) => boolean;
+  if (across) {
+    const insetT = c.disableEdgeTouch ? c.topEdge : 0;
+    const insetB = c.disableEdgeTouch ? c.bottomEdge : 0;
+    const inTop = across.yPx >= insetT && across.yPx < insetT + EDGE_ZONE;
+    const inBottom = across.yPx <= across.height - insetB && across.yPx > across.height - insetB - EDGE_ZONE;
+    zone = (edge) => (edge === 2 ? inTop : edge === 3 ? inBottom : false);
+  } else {
+    const inset = c.disableEdgeTouch ? c.leftEdge : 0;
+    const insetR = c.disableEdgeTouch ? c.rightEdge : 0;
+    const inLeft = xPx >= inset && xPx < inset + EDGE_ZONE;
+    const inRight = xPx <= width - insetR && xPx > width - insetR - EDGE_ZONE;
+    zone = (edge) => (edge === 0 ? inLeft : edge === 1 ? inRight : false);
+  }
   if (c.adjustBrightness && zone(c.brightnessEdge)) return 'brightness';
   if (c.adjustFontSizeAtSlide && zone(c.fontsizeEdge)) return 'fontsize';
   return null;
@@ -85,8 +99,14 @@ export function createInputHandlers(deps: InputDeps) {
       return;
     }
     const c = controlSettings.get();
-    const area = clickArea(c.tapMode, c.toggleTapMode, p.x, p.y);
+    // 右到左漫画：点击区左右镜像（引擎只管翻页方向，点击区归本层）
+    const area = clickArea(c.tapMode, c.toggleTapMode, isRtlComic() ? 1 - p.x : p.x, p.y);
     const o = decideTap({ menuVisible: false, area, bindings: c });
+    // 朗读中点中间（本该呼出菜单的区域）= 暂停/继续朗读（CTRL-001 / AUTO-005）；其他区照常翻页
+    if (o.kind === 'toggle-menu' && s.session && isTtsActive()) {
+      s.session.bus.emit('tts.toggle', {});
+      return;
+    }
     if (o.kind === 'toggle-menu') s.toggleMenu();
     else if (o.kind === 'action' && o.action !== undefined) performAction(o.action, host);
   }
@@ -108,7 +128,7 @@ export function createInputHandlers(deps: InputDeps) {
       return;
     }
     // 从调节边缘起手的竖划已被 verticalDrag 消费
-    if (p.edge && edgeKindAt(toPx(p.startX, w), w)) return;
+    if (p.edge && (edgeKindAt(toPx(p.startX, w), w) || edgeKindAt(toPx(p.startX, w), w, { yPx: toPx(p.startY, h), height: h }))) return;
     const horizontal = p.dir === 'left' || p.dir === 'right';
     const need = horizontal ? Math.min(w / 2, 400) : Math.min(h / 2, 400);
     if (toPx(p.dist, horizontal ? w : h) < need) return;
@@ -131,9 +151,10 @@ export function createInputHandlers(deps: InputDeps) {
       drag = null;
       return;
     }
-    const { w } = deps.size();
+    const { w, h } = deps.size();
     if (!drag) {
-      const kind = edgeKindAt(toPx(p.startX, w), w);
+      // axis='x'：上/下边沿横向擦动，dy 里是横向位移（往左 = 负 = 与往上同向，变亮/变大）
+      const kind = p.axis === 'x' ? edgeKindAt(toPx(p.startX, w), w, { yPx: toPx(p.startY ?? 0, h), height: h }) : edgeKindAt(toPx(p.startX, w), w);
       drag = { kind, last: 0, accum: 0, lastT: now(), speed: 0 };
     }
     if (!drag.kind) return;
@@ -197,25 +218,24 @@ export function createInputHandlers(deps: InputDeps) {
         stopAutoScroll();
         return true;
       }
+      // 链接返回栈非空：返回键不直接退出，弹返回记录菜单（末项「退出」才离开阅读器，TOC-005）
+      if (s.session && useLinkBack.getState().stack.length > 0) {
+        openLinkBackHistory(s.session, { x: 16, y: window.innerHeight / 3, onExit: () => host.backToShelf() });
+        return true;
+      }
       const bound = controlSettings.get().keyMap.Escape;
       if (bound === undefined || !performAction(bound, host)) host.backToShelf();
       return true;
     }
-    const action = keyAction(controlSettings.get().keyMap, e);
+    // 右到左漫画：← 是下一页、→ 是上一页
+    const k = isRtlComic() && (e.key === 'ArrowLeft' || e.key === 'ArrowRight') ? { key: e.key === 'ArrowLeft' ? 'ArrowRight' : 'ArrowLeft', ctrlKey: e.ctrlKey, metaKey: e.metaKey, altKey: e.altKey, shiftKey: e.shiftKey } : e;
+    const action = keyAction(controlSettings.get().keyMap, k);
     if (action === undefined || action === ReaderAction.None) return false;
     // 自动滚屏中翻页键 = 翻一页但不终止滚屏（performAction 本身不停滚屏）
     return performAction(action, host);
   }
 
-  function link(p: ReaderEvents['link']): void {
-    // 内部跳转（非脚注）记录跳转前的位置，供「↩」返回
-    if (p.internal && !p.footnoteHtml) {
-      const l = ui().loc?.locator;
-      if (l) ui().pushLinkBack(l);
-    }
-  }
-
-  return { tap, longPress, swipe, verticalDrag, pinch, key, link, onAutoScroll: (e: ReaderEvents['autoScroll']) => onEngineAutoScroll(e.running, e.speed), speed: changeSpeed };
+  return { tap, longPress, swipe, verticalDrag, pinch, key, onAutoScroll: (e: ReaderEvents['autoScroll']) => onEngineAutoScroll(e), speed: changeSpeed };
 }
 
 export type InputHandlers = ReturnType<typeof createInputHandlers>;
@@ -232,7 +252,6 @@ export function bindController(
     controller.on('swipe', (p) => void h.swipe(p)),
     controller.on('verticalDrag', h.verticalDrag),
     controller.on('pinch', h.pinch),
-    controller.on('link', h.link),
     controller.on('autoScroll', h.onAutoScroll),
     controller.on('endOfBook', extra.onEndOfBook),
     controller.on('key', ({ event }) => {

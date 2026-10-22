@@ -47,8 +47,11 @@ export interface ReaderEvents {
   doubleTap: { x: number; y: number };
   /** 滑动手势（翻页以外的方向，如竖向滑动调亮度/字号由 UI 决定动作）。edge 表示从屏幕边缘起手 */
   swipe: { dir: 'up' | 'down' | 'left' | 'right'; startX: number; startY: number; dist: number; edge?: 'left' | 'right' | 'top' | 'bottom' };
-  /** 竖向拖动过程（原 app：左边缘上下滑调亮度），连续派发 */
-  verticalDrag: { startX: number; dy: number; phase: 'move' | 'end' };
+  /**
+   * 边缘拖动过程（CTRL-007：边缘擦动调亮度/字号），连续派发。默认是左/右边沿的竖向拖动（dy 为竖向位移）；
+   * axis='x' 时是上/下边沿的横向擦动：dy 填横向位移（往左为负，与「往上」同号），startY 为起点纵坐标
+   */
+  verticalDrag: { startX: number; dy: number; phase: 'move' | 'end'; axis?: 'x'; startY?: number };
   /** 双指缩放（改字号） */
   pinch: { scale: number; phase: 'move' | 'end' };
   /** 文字选择变化；null 表示选择取消 */

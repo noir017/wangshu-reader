@@ -73,13 +73,19 @@ export function usePositionSaving(session: ReaderSession | null): void {
   }, [session]);
 }
 
+/** 前进翻页（而不是拖进度条/目录跳转）：同章内页码前进，或进到相邻章；固定版式一次翻 1–2 页（双页） */
+export function advancedByTurning(prev: ReaderLocation, loc: ReaderLocation): boolean {
+  if (loc.section === prev.section) return loc.page > prev.page || loc.locator.offset > prev.locator.offset;
+  return loc.section - prev.section >= 1 && loc.section - prev.section <= 2;
+}
+
 /** 阅读时长与字数采集 + 健康提醒（连续阅读 / 固定时间） */
 export function useReadingStats(session: ReaderSession | null): { touch(): void } | null {
   const trackerRef = { current: null as ReadingTracker | null };
   useEffect(() => {
     if (!session) return;
     const { controller, bookId } = session;
-    const tracker = new ReadingTracker({ save: (ms, words) => addReadingTime(bookId, ms, words) });
+    const tracker = new ReadingTracker({ save: (ms, words, pages) => addReadingTime(bookId, ms, words, Date.now(), pages) });
     trackerRef.current = tracker;
     let prev: ReaderLocation | null = null;
     let remind2Day = uiSettings.get().remind2LastDay;
@@ -87,10 +93,13 @@ export function useReadingStats(session: ReaderSession | null): { touch(): void 
 
     const offRel = controller.on('relocate', (loc) => {
       tracker.touch();
-      // 仅前进翻页计字数：位置前进且只翻了不到几页
-      if (prev && loc.progress > prev.progress && loc.visible.section === loc.section) {
-        const range = loc.visible;
-        void controller.getSectionText(range.section).then((text) => tracker.addWords(countWords(text.slice(range.start, range.end))));
+      // 仅前进翻页计字数和页数：位置前进，且不是拖进度条/跳转式的大跨度（章差 ≤ 1，固定版式即页差 ≤ 2）
+      if (prev && loc.progress > prev.progress && advancedByTurning(prev, loc)) {
+        tracker.addPages(1);
+        if (loc.visible.section === loc.section) {
+          const range = loc.visible;
+          void controller.getSectionText(range.section).then((text) => tracker.addWords(countWords(text.slice(range.start, range.end))));
+        }
       }
       prev = loc;
     });

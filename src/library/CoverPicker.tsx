@@ -5,7 +5,7 @@ import { Button, Segmented, toast, openOverlay } from '@/ui';
 import { getBook } from '@/storage/db';
 import type { BookRecord } from '@/core/library';
 import { FullDialog, TextField, Spinner, Empty } from './ui-kit';
-import { PALETTES, coverSvg, fetchImageBlob, searchCovers, setCustomCover, svgCoverBlob, type CoverCandidate } from './covers';
+import { CoverSearchError, coverSiteName, PALETTES, coverSvg, fetchImageBlob, searchCovers, setCustomCover, svgCoverBlob, type CoverCandidate } from './covers';
 import { pickFiles } from './import-collect';
 import { shelfSettings } from './settings';
 import { hasServer } from '@/core/server';
@@ -121,7 +121,7 @@ function OnlineSearch(props: { book: BookRecord; busy: boolean; onPick: (c: Cove
     try {
       setItems(await searchCovers(q, '', engine));
     } catch (e) {
-      setErr((e as Error).message);
+      setErr(e instanceof CoverSearchError && e.rateLimited ? t('coverRateLimited', { site: coverSiteName(e.source) }) : (e as Error).message);
       setItems([]);
     } finally {
       setLoading(false);
@@ -129,9 +129,9 @@ function OnlineSearch(props: { book: BookRecord; busy: boolean; onPick: (c: Cove
   };
   useEffect(() => {
     void run();
-    // 只在打开时自动搜一次
+    // 打开时和切换来源时自动搜一次
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [engine]);
   return (
     <div>
       <div className={s.pad} style={{ display: 'flex', gap: 8 }}>
@@ -139,6 +139,17 @@ function OnlineSearch(props: { book: BookRecord; busy: boolean; onPick: (c: Cove
         <Button primary onClick={() => void run()} disabled={loading}>
           <Search size={16} />
         </Button>
+      </div>
+      <div className={s.pad} style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 0 }}>
+        <span className={s.dim} style={{ fontSize: 13 }}>{t('coverEngine')}</span>
+        <Segmented
+          value={engine}
+          onChange={(v) => shelfSettings.set({ coverSearchEngine: v })}
+          options={[
+            { value: 'openlibrary', label: 'Open Library' },
+            { value: 'googlebooks', label: 'Google Books' },
+          ]}
+        />
       </div>
       {!hasServer() && <div className={`${s.pad} ${s.dim}`}>{t('noServer')}: Open Library / Google Books</div>}
       {loading && (

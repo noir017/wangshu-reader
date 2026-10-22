@@ -33,7 +33,7 @@ function FontPicker({ target, close }: { target: FontPickTarget; close: () => vo
     void reload();
     if (hasServer()) void listServerFonts().then(async (l) => {
       setServer(l);
-      for (const f of l) void ensureFont(`server:${f.file}`);
+      for (const f of l) void ensureFont(`server:${f.file}`, { quiet: true }); // 只为渲染示例，失败不打扰；真选中时才提示
     });
   }, []);
 

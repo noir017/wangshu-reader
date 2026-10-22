@@ -9,6 +9,12 @@
   touch-action: manipulation;
 }
 
+/* 书签角标：阅读页的菜单栏（顶栏）显示时让位，否则它盖住顶栏右上角的 ⋮ 按钮（reader/ui 在 html 上写 data-reader-menu） */
+:global(html[data-reader-menu='true']) .bookmarkCorner {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .bar {
   display: flex;
   align-items: stretch;

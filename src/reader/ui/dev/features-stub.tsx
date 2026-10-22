@@ -26,3 +26,4 @@ export const openTtsMoreDialog = noop('openTtsMoreDialog');
 export const openTtsVoiceDialog = noop('openTtsVoiceDialog');
 export const openTtsFilterDialog = noop('openTtsFilterDialog');
 export const openSpeakMenu = noop('openSpeakMenu');
+export const isTtsActive = () => false;

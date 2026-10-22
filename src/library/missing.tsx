@@ -10,6 +10,8 @@ import { CheckBox } from './ui-kit';
 import { pickFiles } from './import-collect';
 import { present } from './dialogs';
 import { deleteBook, removeManyFromHistory, touchHistory } from '@/storage/db';
+import { adoptLegacyBook } from './legacy-relink';
+import { isLegacyId } from './mrpro-import';
 import { t } from './i18n';
 import s from './library.module.css';
 
@@ -48,6 +50,13 @@ export async function askMissingBook(book: BookRecord): Promise<void> {
   if (c.kind === 'relink') {
     const [it] = await pickFiles({ multiple: false });
     if (!it) return;
+    // 从原版 .mrpro 导入的「待补文件」书：没有指纹可比，选了就按内容正式入库并接上进度、标注
+    if (isLegacyId(book.id)) {
+      const id = await adoptLegacyBook(book, it.file);
+      await touchHistory(id);
+      navigate('read', id);
+      return;
+    }
     if ((await fileFingerprint(it.file)) !== book.id) {
       toast(t('importNotesNotSame'));
       return;

@@ -15,6 +15,7 @@ import {
   type ParsedBackup,
 } from '@/storage/backup';
 import { applyLegacyFile, findLegacyBook, readLegacyFile } from '@/storage/legacy';
+import { importMrpro } from '../mrpro-import';
 import { loadSyncConfig } from '@/storage/sync';
 import { pickFiles } from '../import-collect';
 import { formatDate, formatDateTime, formatSize, safeFileName, triggerDownload } from '../format';
@@ -249,13 +250,36 @@ function RestoreDialog({ onClose }: { onClose: () => void }) {
 }
 
 // ───────────── 导入原版 Moon+ 的 .po / .an / .mrexpt ─────────────
+/** 原版整库备份（.mrpro / .mrstd）：确认后导入书架、进度、标注、统计（BAK-002 的原版互通部分） */
+async function importMoonBackup(file: File): Promise<void> {
+  if (!(await confirmDialog(t('mrproConfirm', { name: file.name })))) return;
+  const close = openOverlay(() => (
+    <FullDialog title={t('mrproReading')} onClose={() => undefined}>
+      <div className={s.pad}><Spinner size={18} /> {file.name}</div>
+    </FullDialog>
+  ));
+  try {
+    const r = await importMrpro(file);
+    toast(t('mrproDone', { name: file.name, books: r.books, positions: r.positions, annotations: r.annotations, stats: r.stats, pending: r.pending ? t('mrproPending', { n: r.pending }) : '' }), 7000);
+  } catch (e) {
+    toast(t('mrproFailed', { msg: errMsg(e) }), 5000);
+  } finally {
+    close();
+  }
+}
+
 export async function runLegacyImport(): Promise<void> {
-  const items = await pickFiles({ accept: ['an', 'mrexpt', 'po', 'txt'] });
+  const items = await pickFiles({ accept: ['mrpro', 'mrstd', 'an', 'mrexpt', 'po', 'txt'] });
   if (!items.length) return;
   let done = 0;
   let skipped = 0;
   const lines: string[] = [];
   for (const it of items) {
+    if (/\.(mrpro|mrstd)$/i.test(it.file.name)) {
+      await importMoonBackup(it.file);
+      done++;
+      continue;
+    }
     const lf = readLegacyFile(it.file.name, new Uint8Array(await it.file.arrayBuffer()));
     if (!lf) {
       skipped++;
@@ -288,6 +312,7 @@ export async function runLegacyImport(): Promise<void> {
     } else lines.push(t('legacyNotesOk', { name: book.title, a: r.added, u: r.updated, d: r.removed }));
     done++;
   }
+  if (items.every((it) => /\.(mrpro|mrstd)$/i.test(it.file.name))) return; // 整库备份已各自给过汇总
   const skip = skipped ? t('legacySkip', { n: skipped }) : '';
   toast([t('legacyDone', { n: done, skip }), ...lines.slice(0, 3)].join('\n'), 4500);
 }

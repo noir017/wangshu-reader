@@ -126,6 +126,17 @@ describe('没有令牌时的跨站防护（originGuard）', () => {
     expect((await app.request('/api/proxy?url=http%3A%2F%2F127.0.0.1%3A1%2F', { headers: { Origin: 'https://evil.example' } })).status).toBe(403);
   });
 
+  it('被拒的非预检请求带 CORS 头，浏览器页面才读得到「请设置 MR_TOKEN」的说明；预检仍是裸 403', async () => {
+    const { app } = makeApp();
+    const r = await get(app, 'https://evil.example');
+    expect(r.status).toBe(403);
+    expect(r.headers.get('Access-Control-Allow-Origin')).toBe('https://evil.example');
+    expect(((await r.json()) as { error: string }).error).toContain('MR_TOKEN');
+    const pre = await app.request('/api/dict/sources', { method: 'OPTIONS', headers: { Origin: 'https://evil.example', 'Access-Control-Request-Method': 'GET' } });
+    expect(pre.status).toBe(403);
+    expect(pre.headers.get('Access-Control-Allow-Origin')).toBeNull();
+  });
+
   it('设了 MR_TOKEN 就不做这个检查（令牌本身就是防护）', async () => {
     const { app } = makeApp({ MR_TOKEN: 'k' });
     expect((await get(app, 'https://anywhere.example', { Authorization: 'Bearer k' })).status).toBe(200);

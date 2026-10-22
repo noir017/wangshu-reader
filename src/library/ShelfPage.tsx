@@ -77,6 +77,16 @@ export function ShelfPage() {
   const wood = st.woody && st.shelfStyle === 1;
   const woodRes = night ? st.woodyResNight : st.woodyResDay;
 
+  // LIB-001：首次进入书架且书架是空的，自动弹出「导入书籍」对话框（只弹一次；已有书则不弹）
+  // 判空直接查库：书库状态可能还是旧快照（刚恢复完备份就进书架时，书已入库但列表还没刷新）
+  useEffect(() => {
+    if (!lib.loaded || st.firstShelfShown) return;
+    shelfSettings.set({ firstShelfShown: true });
+    void listBooks().then((all) => {
+      if (all.every((b) => b.onShelf === false)) openImportDialog();
+    });
+  }, [lib.loaded]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // 离开分组/换分类时退出多选
   useEffect(() => sel.clear(), [st.category, st.subCollection]); // eslint-disable-line react-hooks/exhaustive-deps
 

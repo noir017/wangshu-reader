@@ -28,10 +28,14 @@ export class PasswordNeededError extends Error {
   }
 }
 
-/** pdf.js 的 PasswordException：code 1 = 需要密码，2 = 密码错误；其他解析器可抛 name 为 PasswordException 的错误 */
+/**
+ * 认密码异常：formats 的 PasswordRequiredError（code='password'，reason 区分需要/错误，消息是中文）；
+ * 直接冒上来的 pdf.js PasswordException（code 1 = 需要密码，2 = 密码错误）；其他解析器按英文消息识别
+ */
 export function asPasswordError(e: unknown): PasswordNeededError | null {
-  const err = e as { name?: string; code?: number; message?: string } | null;
+  const err = e as { name?: string; code?: number | string; message?: string; reason?: string } | null;
   if (!err) return null;
+  if (err.code === 'password' || err.name === 'PasswordRequiredError') return new PasswordNeededError(err.reason === 'incorrect');
   if (err.name === 'PasswordException' || /need.*password|password.*(required|needed)/i.test(err.message ?? '') || /incorrect password|wrong password/i.test(err.message ?? '')) {
     return new PasswordNeededError(err.code === 2 || /incorrect|wrong/i.test(err.message ?? ''));
   }
@@ -43,7 +47,15 @@ export interface LoadedBook {
   book: Book;
 }
 
-export async function loadBook(bookId: string, opts: { password?: string; signal?: AbortSignal } = {}): Promise<LoadedBook> {
+/** 压缩包里有多本书（formats 的 ArchiveChoiceError）：让用户挑一本，再带 entry 重开（FMT-020） */
+export class ArchiveChoiceNeededError extends Error {
+  constructor(public readonly entries: string[]) {
+    super('archive has multiple books');
+    this.name = 'ArchiveChoiceNeededError';
+  }
+}
+
+export async function loadBook(bookId: string, opts: { password?: string; entry?: string; signal?: AbortSignal } = {}): Promise<LoadedBook> {
   const record = await getBook(bookId);
   const file = record ? await getBookFile(bookId) : undefined;
   if (!record || !file) throw new BookNotFoundError();
@@ -60,10 +72,12 @@ export async function loadBook(bookId: string, opts: { password?: string; signal
       fileName: record.fileName,
       encoding: enc && enc !== 'auto' ? enc : undefined,
       signal: opts.signal,
-      extra: password !== undefined ? { password } : undefined,
+      extra: password !== undefined || opts.entry ? { ...(password !== undefined ? { password } : {}), ...(opts.entry ? { entry: opts.entry } : {}) } : undefined,
     });
     return { record, book };
   } catch (e) {
+    const multi = e as { code?: string; entries?: unknown };
+    if (multi?.code === 'multiple' && Array.isArray(multi.entries)) throw new ArchiveChoiceNeededError(multi.entries as string[]);
     const pw = asPasswordError(e);
     if (pw) {
       if (saved !== undefined) {

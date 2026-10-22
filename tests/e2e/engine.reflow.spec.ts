@@ -130,11 +130,18 @@ test('链接事件：书内锚点、脚注、外链、跨章；图片事件', as
   expect((await loc(page)).section).toBe(2);
 });
 
-test('图片事件：点击图片上报 src/alt/rect', async ({ page }) => {
+test('图片事件：长按图片上报 src/alt/rect，单击图片只是普通点击（原版 longTapImageFullScreen）', async ({ page }) => {
   await open(page, 'flip=1&speed=0&img=1');
   const r = await h<any>(page, "h.rectOf('img1')");
   expect(r.y).toBeLessThan(800);
   await page.mouse.click(r.x + r.w / 2, r.y + r.h / 2);
+  await wait(page, 300);
+  expect(await evs(page, 'image')).toHaveLength(0);
+  expect((await evs(page, 'tap')).length).toBeGreaterThan(0);
+  await page.mouse.move(r.x + r.w / 2, r.y + r.h / 2);
+  await page.mouse.down();
+  await wait(page, 900);
+  await page.mouse.up();
   await wait(page, 300);
   const im = await evs(page, 'image');
   expect(im.at(-1).src).toContain('data:image/svg');
@@ -480,6 +487,29 @@ test('长按/拖动的页边与防误触：边缘上下滑上报 verticalDrag', 
   expect(vd.length).toBeGreaterThanOrEqual(2);
   expect(vd.at(-1).phase).toBe('end');
   expect(vd[0].dy).toBeLessThan(0);
+});
+
+test('亮度边选「上边」：顶边沿横向擦动上报 verticalDrag(axis=x)，左边沿不再上报（CTRL-007）', async ({ page, context }) => {
+  await open(page, 'flip=1&speed=0');
+  await h(page, 'h.settings.controlSettings.set({ brightnessEdge: 2 })');
+  const cdp = await context.newCDPSession(page);
+  const t = (type: string, x = 0, y = 0) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y, id: 1 }] } as never);
+  await h(page, 'h.events.length = 0');
+  await t('touchStart', 300, 15);
+  for (let i = 1; i <= 6; i++) await t('touchMove', 300 - i * 25, 16);
+  await t('touchEnd');
+  const vd = await evs(page, 'verticalDrag');
+  expect(vd.length).toBeGreaterThanOrEqual(2);
+  expect(vd[0]).toMatchObject({ axis: 'x' });
+  expect(vd[0].dy).toBeLessThan(0);
+  expect(vd.at(-1).phase).toBe('end');
+  // 左边沿不再是亮度区：竖滑不上报
+  await h(page, 'h.events.length = 0');
+  await t('touchStart', 10, 600);
+  for (let i = 1; i <= 6; i++) await t('touchMove', 12, 600 - i * 25);
+  await t('touchEnd');
+  expect(await evs(page, 'verticalDrag')).toHaveLength(0);
+  await h(page, 'h.settings.controlSettings.reset()');
 });
 
 test('从指定位置打开：落在该字符所在行', async ({ page }) => {

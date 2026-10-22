@@ -90,15 +90,18 @@ describe('自动滚屏控制（AUTO-001）', () => {
     expect(useReaderUi.getState().autoRunning).toBe(false);
   });
 
-  it('暂停/继续：暂停 = 停引擎并标记，继续 = 重新开始', () => {
+  it('暂停/继续：已暂停时继续 = 引擎 start()（原地继续）；运行中界面侧只能整个停止', () => {
     const c = install();
     startAutoScroll();
-    pauseOrResume();
-    expect(useReaderUi.getState()).toMatchObject({ autoPaused: true });
-    expect(c.stopAutoScroll).toHaveBeenCalledOnce();
+    expect(c.startAutoScroll).toHaveBeenCalledTimes(1);
+    useReaderUi.getState().setAuto({ running: false, paused: true }); // 引擎报告 paused
     pauseOrResume();
     expect(c.startAutoScroll).toHaveBeenCalledTimes(2);
-    expect(useReaderUi.getState()).toMatchObject({ autoPaused: false, autoRunning: true });
+    expect(c.stopAutoScroll).not.toHaveBeenCalled();
+    useReaderUi.getState().setAuto({ running: true, paused: false });
+    pauseOrResume();
+    expect(c.stopAutoScroll).toHaveBeenCalledOnce();
+    expect(useReaderUi.getState()).toMatchObject({ autoPaused: false, autoRunning: false });
   });
 
   it('调速：delta>0 加快；改设置并提示', () => {

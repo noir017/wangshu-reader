@@ -105,6 +105,7 @@ function CoverStrip({ books, ctx }: { books: BookRecord[]; ctx: 'recent' | 'rece
         <div
           key={b.id}
           className={s.hitem}
+          data-book-id={b.id}
           style={{ width: Math.max(64, size) }}
           onClick={() => void openBook(b.id)}
           onContextMenu={(e) => {

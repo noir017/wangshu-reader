@@ -68,6 +68,9 @@ describe('样式表生成', () => {
     expect(css).toContain('letter-spacing:0.200em');
     expect(css).toContain('text-align:justify');
     expect(css).toContain('text-indent:3em');
+    // TXT 行首原有的空白（全角空格）在开缩进时隐藏，否则缩进两次（TYPO-008）；不开缩进时照原样显示
+    expect(css).toContain('.mr-ind{display:none}');
+    expect(buildBaseCss(cfg({ indentParagraph: false }))).not.toContain('.mr-ind{display:none}');
     expect(css).toContain('font-weight:bold');
     expect(buildBaseCss(cfg({ textHyphenation: true }))).toContain('hyphens:auto');
     expect(buildBaseCss(cfg({ textHyphenation: false }))).toContain('hyphens:manual');

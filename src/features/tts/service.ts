@@ -176,6 +176,12 @@ function bind(session: ReaderSession): TtsRunner {
   return runner;
 }
 
+/** 正在朗读（含暂停中）：reader/ui 据此把点击正文中间改成暂停/继续（CTRL-001） */
+export function isTtsActive(): boolean {
+  const st = useTts.getState().state.status;
+  return st === 'playing' || st === 'paused';
+}
+
 export function getRunner(): TtsRunner | undefined {
   return runner;
 }

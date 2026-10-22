@@ -31,9 +31,11 @@ describe('阅读时长采集（STAT-001）', () => {
     expect(save.mock.calls[0][0]).toBeGreaterThanOrEqual(4000);
     tr.addWords(120);
     tr.addWords(-5); // 负数忽略
+    tr.addPages(3);
+    tr.addPages(0);
     advance(1000);
     tr.flush();
-    expect(save.mock.calls.at(-1)).toEqual([1000, 120]);
+    expect(save.mock.calls.at(-1)).toEqual([1000, 120, 3]); // 第三个参数是翻页数（统计卡片的页数）
     tr.flush();
     expect(save).toHaveBeenCalledTimes(2); // 没有新数据不再写
   });

@@ -52,6 +52,9 @@ export function originGuard(): MiddlewareHandler {
     if (LOOPBACK_NAME.test(host) || IP_LITERAL.test(host)) return next();
     const hosts = [c.req.header('X-Forwarded-Host'), c.req.header('Host')].filter(Boolean).flatMap((h) => h!.split(',').map((x) => hostnameOf(x.trim())));
     if (hosts.includes(hostnameOf(host))) return next();
-    return c.json({ error: `拒绝来自 ${origin} 的跨站请求：服务端没有设置 MR_TOKEN，只接受本机/同源页面（设置 MR_TOKEN 后可从任意站点访问）` }, 403);
+    // 403 带上 CORS 头：否则浏览器把它当成网络错误，页面只能显示「无法连接」，用户不知道是 MR_TOKEN 的问题。
+    // 响应里只有这句说明，没有任何数据，所以不扩大暴露面；预检仍然是裸 403（浏览器不会再发后续请求）
+    const headers: Record<string, string> = c.req.method === 'OPTIONS' ? {} : { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' };
+    return c.json({ error: `拒绝来自 ${origin} 的跨站请求：服务端没有设置 MR_TOKEN，只接受本机/同源页面（设置 MR_TOKEN 后可从任意站点访问）` }, 403, headers);
   };
 }

@@ -39,6 +39,10 @@ export const shelfSettings = defineSettings('library.shelf', {
   /** 缺省封面的配色序号 0..5；-1 = 自动（按书名挑色） */
   defaultCover: -1,
   // 框架
+  /** 首次进入书架（LIB-001）：空书架时自动弹一次导入对话框，弹过（或书架里已有书）就置 true */
+  firstShelfShown: false,
+  /** 最后停留的标签页路由名（原 lastDash）：冷启动（地址里没有 #/…）时回到它 */
+  lastTab: '',
   simpleRecentList: false,
   hideFab: false,
   favoriteOnDrawer: false,

@@ -14,6 +14,7 @@ import { deleteCatalog, saveCatalog, togglePinCatalog, useCatalogs, type Catalog
 import { AuthRequiredError, NotOpdsError, discoverSearch, fetchFeed, searchFeed, type CatalogAuth } from '../opds-client';
 import { guessPrevUrl, pageInfo, type OpdsEntry, type OpdsFeed } from '../opds';
 import { useDownloads } from '../downloads';
+import { explainServerError } from '../format';
 import { netSettings } from '../settings';
 import { t } from '../i18n';
 import s from '../library.module.css';
@@ -206,7 +207,7 @@ function Browse({ catalogId }: { catalogId: string }) {
       requestAnimationFrame(() => contentRef.current?.scrollTo({ top: 0 }));
     } catch (e) {
       if (e instanceof NotOpdsError) setError({ msg: t('netNoList'), web: e.finalUrl });
-      else setError({ msg: `${t('netNoList')}\n${(e as Error).message}` });
+      else setError({ msg: `${t('netNoList')}\n${explainServerError((e as Error).message, t('serverNeedToken'))}` });
     } finally {
       setLoading(false);
     }

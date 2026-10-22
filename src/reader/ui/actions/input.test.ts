@@ -226,6 +226,21 @@ describe('verticalDrag / pinch：边缘调亮度与字号、双指缩放（CTRL-
     expect(edgeKindAt(200, 400)).toBeNull();
   });
 
+  it('亮度边选「上边」：顶边沿横向擦动调亮度（往左变亮），中间横拖不算（CTRL-007 brightness_edge=2）', () => {
+    let t = 0;
+    const { h } = setup({ now: () => (t += 100) });
+    controlSettings.set({ brightnessEdge: 2 });
+    screenSettings.set({ brightnessValue: 50 });
+    expect(edgeKindAt(200, 400, { yPx: 10, height: 800 })).toBe('brightness');
+    expect(edgeKindAt(10, 400)).toBeNull(); // 左边沿不再是亮度区
+    h.verticalDrag({ startX: 200, startY: 400, dy: -60, axis: 'x', phase: 'move' });
+    expect(screenSettings.get().brightnessValue).toBe(50);
+    h.verticalDrag({ startX: 200, startY: 400, dy: 0, axis: 'x', phase: 'end' });
+    h.verticalDrag({ startX: 200, startY: 0.01, dy: -30, axis: 'x', phase: 'move' });
+    expect(screenSettings.get().brightnessValue).toBeGreaterThan(50);
+    controlSettings.reset();
+  });
+
   it('左边缘上滑变亮、下滑变暗（每 20px 一档），并唤出精简亮度面板', () => {
     let t = 0;
     const { h } = setup({ now: () => (t += 100) });
@@ -278,6 +293,68 @@ describe('verticalDrag / pinch：边缘调亮度与字号、双指缩放（CTRL-
   });
 });
 
+describe('右到左漫画：点击区与方向键左右镜像（CTRL-001 / 集成缺口 A4）', () => {
+  const installBook = (book: object) => useReaderUi.setState({ session: { book: { kind: 'fixed', metadata: {}, ...book } } as never });
+
+  it('metadata.direction=rtl 的 CBZ：点左 = 下一页，点右 = 上一页；上下区不变', () => {
+    installBook({ format: 'cbz', metadata: { direction: 'rtl' } });
+    const { h, calls } = setup();
+    h.tap({ x: 0.1, y: 0.5 });
+    h.tap({ x: 0.9, y: 0.5 });
+    expect(calls).toEqual(['pageDown', 'pageUp']);
+    calls.length = 0;
+    controlSettings.set({ toggleTapMode: false });
+    h.tap({ x: 0.5, y: 0.1 });
+    h.tap({ x: 0.5, y: 0.9 });
+    expect(calls).toEqual(['pageUp', 'pageDown']);
+  });
+
+  it('用户设置 comicRtl 同样生效；← 是下一页、→ 是上一页', async () => {
+    const { fixedSettings } = await import('@/reader/settings');
+    installBook({ format: 'cbr' });
+    fixedSettings.set({ comicRtl: true });
+    const { h, calls } = setup();
+    h.tap({ x: 0.1, y: 0.5 });
+    h.key({ key: 'ArrowLeft' });
+    h.key({ key: 'ArrowRight' });
+    expect(calls).toEqual(['pageDown', 'pageDown', 'pageUp']);
+    fixedSettings.reset();
+  });
+
+  it('PDF 与左到右漫画不镜像', () => {
+    installBook({ format: 'pdf', metadata: { direction: 'rtl' } });
+    const a = setup();
+    a.h.tap({ x: 0.1, y: 0.5 });
+    expect(a.calls).toEqual(['pageUp']);
+    installBook({ format: 'cbz' });
+    const b = setup();
+    b.h.tap({ x: 0.1, y: 0.5 });
+    b.h.key({ key: 'ArrowLeft' });
+    expect(b.calls).toEqual(['pageUp', 'pageUp']);
+  });
+});
+
+describe('朗读中的点击（CTRL-001 / AUTO-005）', () => {
+  it('点中间 = 暂停/继续朗读（发 tts.toggle），不呼出菜单；点两侧照常翻页', async () => {
+    const { useTts } = await import('@/features/tts/service');
+    const bus = new Emitter<{ 'tts.toggle': object }>();
+    const got: unknown[] = [];
+    bus.on('tts.toggle', (p) => got.push(p));
+    useReaderUi.setState({ session: { book: { kind: 'reflowable', format: 'epub', metadata: {} }, bus } as never });
+    useTts.setState({ state: { ...useTts.getState().state, status: 'playing' } });
+    const { h, calls } = setup();
+    h.tap({ x: 0.5, y: 0.5 });
+    expect(got).toHaveLength(1);
+    expect(useReaderUi.getState().menu).toBe(false);
+    h.tap({ x: 0.9, y: 0.5 });
+    expect(calls).toEqual(['pageDown']);
+    useTts.setState({ state: { ...useTts.getState().state, status: 'idle' } });
+    h.tap({ x: 0.5, y: 0.5 });
+    expect(got).toHaveLength(1);
+    expect(useReaderUi.getState().menu).toBe(true);
+  });
+});
+
 describe('自动滚屏中的输入（AUTO-001）', () => {
   function withAuto() {
     const stop = vi.fn();
@@ -286,17 +363,19 @@ describe('自动滚屏中的输入（AUTO-001）', () => {
     return { stop, start };
   }
 
-  it('单击 = 暂停，再单击 = 继续（不翻页、不弹菜单）', () => {
+  it('已暂停时单击 = 继续（不翻页、不弹菜单）；运行中的单击由引擎自己处理，界面侧只能整个停止', () => {
     const { stop, start } = withAuto();
+    useReaderUi.getState().setAuto({ running: false, paused: true });
     const { h, calls } = setup();
     h.tap({ x: 0.9, y: 0.5 });
-    expect(stop).toHaveBeenCalledOnce();
-    expect(useReaderUi.getState().autoPaused).toBe(true);
-    h.tap({ x: 0.9, y: 0.5 });
     expect(start).toHaveBeenCalledOnce();
-    expect(useReaderUi.getState().autoPaused).toBe(false);
+    expect(stop).not.toHaveBeenCalled();
     expect(calls).toEqual([]);
     expect(useReaderUi.getState().menu).toBe(false);
+    useReaderUi.getState().setAuto({ running: true, paused: false });
+    h.tap({ x: 0.9, y: 0.5 });
+    expect(stop).not.toHaveBeenCalled(); // 测试里的控制器报告「没在滚」，所以不会真去停引擎
+    expect(useReaderUi.getState()).toMatchObject({ autoRunning: false, autoPaused: false });
   });
 
   it('横向划动 > 80px = 停止', async () => {
@@ -322,19 +401,22 @@ describe('自动滚屏中的输入（AUTO-001）', () => {
     expect(useReaderUi.getState().autoRunning).toBe(true);
   });
 
-  it('引擎 autoScroll 事件同步界面状态：滚屏中引擎说停了 = 暂停；界面自己停止则清空', () => {
+  it('引擎 autoScroll 事件同步界面状态：用 paused 字段区分暂停与真正停止', () => {
     const { h } = setup();
     h.onAutoScroll({ running: true, speed: 50 });
-    expect(useReaderUi.getState().autoRunning).toBe(true);
-    h.onAutoScroll({ running: false, speed: 50 });
-    expect(useReaderUi.getState().autoRunning).toBe(false);
-    expect(useReaderUi.getState().autoPaused).toBe(true);
-    h.onAutoScroll({ running: true, speed: 50 });
     expect(useReaderUi.getState()).toMatchObject({ autoRunning: true, autoPaused: false });
-    // 界面自己停止：先清状态再通知引擎，之后引擎回报的 running:false 不能被当成暂停
+    h.onAutoScroll({ running: false, paused: true, speed: 50 });
+    expect(useReaderUi.getState()).toMatchObject({ autoRunning: false, autoPaused: true });
+    h.onAutoScroll({ running: true, paused: false, speed: 50 });
+    expect(useReaderUi.getState()).toMatchObject({ autoRunning: true, autoPaused: false });
+    // 引擎真正停止（横拖、到书末）：状态清空，不再当暂停
+    h.onAutoScroll({ running: false, paused: false, speed: 50 });
+    expect(useReaderUi.getState()).toMatchObject({ autoRunning: false, autoPaused: false });
+    // 界面自己停止：先清状态再通知引擎，之后引擎回报的停止不能再触发任何东西
+    h.onAutoScroll({ running: true, speed: 50 });
     useReaderUi.getState().setAuto({ running: false, paused: false });
-    h.onAutoScroll({ running: false, speed: 50 });
-    expect(useReaderUi.getState().autoPaused).toBe(false);
+    h.onAutoScroll({ running: false, paused: false, speed: 50 });
+    expect(useReaderUi.getState()).toMatchObject({ autoRunning: false, autoPaused: false });
   });
 
   it('调速：delta>0 加快（autoScrollSpeed 变小），夹在 0..100', () => {

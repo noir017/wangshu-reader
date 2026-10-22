@@ -8,6 +8,7 @@ import { enqueueDownload } from './downloads';
 import { importWithUi } from './ImportDialogs';
 import { goRead } from './actions';
 import { startSyncService } from './sync-service';
+import { consumeSharedFiles, registerServiceWorker } from './pwa';
 import { t } from './i18n';
 
 let done = false;
@@ -21,6 +22,9 @@ export function runStartup(initialRoute: string): void {
   done = true;
   startSyncService();
   startReadwiseAutoShare((msg) => toast(t('readwiseErr', { msg })));
+  // PWA：注册 service worker（仅 http(s) 部署）；接收分享目标（?shared=1）收到的文件
+  void registerServiceWorker();
+  void consumeSharedFiles();
 
   // PWA 文件打开：用本应用打开 .epub 等文件
   const lq = (window as unknown as { launchQueue?: { setConsumer(fn: (p: LaunchParams) => void): void } }).launchQueue;

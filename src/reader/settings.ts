@@ -342,4 +342,6 @@ export const fixedSettings = defineSettings('reader.fixed', {
   comicRtl: false,
   /** 适配方式：'page' 整页 / 'width' 适合宽度 / 'height' 适合高度 */
   fitMode: 'page' as 'page' | 'width' | 'height',
+  /** PDF 文本重排（PDF-006，原 Global.textReflow，全局开关）：开着时 PDF 按文字重新排版成文本书 */
+  textReflow: false,
 });

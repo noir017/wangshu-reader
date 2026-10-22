@@ -9,7 +9,7 @@ const check = vi.fn();
 vi.mock('@/formats', () => ({ openBook: (...a: unknown[]) => openBook(...a), detectFormat: (...a: unknown[]) => detect(...a) }));
 vi.mock('@/core/server', () => ({ checkServer: () => check() }));
 
-import { BookNotFoundError, PasswordNeededError, ServerNeededError, asPasswordError, loadBook } from './load';
+import { ArchiveChoiceNeededError, BookNotFoundError, PasswordNeededError, ServerNeededError, asPasswordError, loadBook } from './load';
 import { clearSavedPassword, getSavedPassword, savePassword } from './password';
 
 const rec = (id: string, fileName = 'a.pdf'): BookRecord => ({ id, fileName, format: 'pdf', size: 1, title: 't', authors: [], tags: [], addedAt: 1, onShelf: true, hasCover: false });
@@ -30,6 +30,11 @@ describe('asPasswordError：识别各种密码异常', () => {
     expect(asPasswordError({ name: 'PasswordException', code: 1 })?.wrong).toBe(false);
     expect(asPasswordError({ name: 'PasswordException', code: 2 })?.wrong).toBe(true);
   });
+  it('formats 的 PasswordRequiredError（code=password，中文消息）：之前认不出，加密 PDF 直接显示「打开失败」而不弹密码框', async () => {
+    const { PasswordRequiredError } = await import('@/formats/errors');
+    expect(asPasswordError(new PasswordRequiredError('need'))?.wrong).toBe(false);
+    expect(asPasswordError(new PasswordRequiredError('incorrect'))?.wrong).toBe(true);
+  });
   it('按消息文字识别', () => {
     expect(asPasswordError(new Error('Password required'))).toBeInstanceOf(PasswordNeededError);
     expect(asPasswordError(new Error('Incorrect password'))?.wrong).toBe(true);
@@ -41,6 +46,18 @@ describe('asPasswordError：识别各种密码异常', () => {
 describe('loadBook：错误分类与保存的密码', () => {
   it('书或文件不存在', async () => {
     await expect(loadBook('nope')).rejects.toBeInstanceOf(BookNotFoundError);
+  });
+
+  it('多本书的压缩包：ArchiveChoiceError 转成 ArchiveChoiceNeededError（带条目列表），选中后带 extra.entry 重开（FMT-020）', async () => {
+    await seed('zip2', 'two.zip');
+    const { ArchiveChoiceError } = await import('@/formats/errors');
+    openBook.mockRejectedValueOnce(new ArchiveChoiceError(['a.epub', 'b.txt']));
+    const err = await loadBook('zip2').catch((e) => e);
+    expect(err).toBeInstanceOf(ArchiveChoiceNeededError);
+    expect(err.entries).toEqual(['a.epub', 'b.txt']);
+    openBook.mockResolvedValueOnce({ kind: 'reflowable' });
+    await loadBook('zip2', { entry: 'b.txt' });
+    expect(openBook.mock.calls.at(-1)![1].extra).toEqual({ entry: 'b.txt' });
   });
 
   it('需要服务端的格式在服务端不可用时给出专门的错误', async () => {

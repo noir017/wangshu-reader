@@ -27,6 +27,21 @@ export interface ImportOptions {
 export interface ImportFailure {
   name: string;
   reason: string;
+  /** 类型不受支持（不是解析失败）：界面可以问「是否以纯文本模式打开」（LIB-035） */
+  unsupported?: boolean;
+}
+
+export class UnsupportedFileError extends Error {
+  constructor() {
+    super('不支持此文件');
+    this.name = 'UnsupportedFileError';
+  }
+}
+
+/** 按纯文本重新导入：文件名加 .txt，交给 TXT 解析器（书名仍是原文件名） */
+export function asTextItem(item: ImportItem): ImportItem {
+  const f = item.file;
+  return { ...item, file: new File([f], `${f.name}.txt`, { type: 'text/plain', lastModified: f.lastModified }) };
 }
 
 export interface ImportResult {
@@ -82,7 +97,7 @@ export async function importFile(item: ImportItem, opts: ImportOptions = {}): Pr
   const name = file.name;
   const head = new Uint8Array(await file.slice(0, 16).arrayBuffer());
   const parser = detectFormat(name, head);
-  if (!parser) throw new Error('不支持此文件');
+  if (!parser) throw new UnsupportedFileError();
   const id = await fileFingerprint(file);
   const onShelf = opts.onShelf !== false;
 
@@ -141,7 +156,7 @@ export async function importFiles(items: ImportItem[], opts: ImportOptions = {})
       const { book, isNew } = await importFile(item, opts);
       (isNew ? res.added : res.existing).push(book);
     } catch (e) {
-      res.failed.push({ name: item.file.name, reason: (e as Error).message });
+      res.failed.push({ name: item.file.name, reason: (e as Error).message, unsupported: e instanceof UnsupportedFileError || undefined });
     }
   }
   opts.onProgress?.({ done: items.length, total: items.length, current: '' });

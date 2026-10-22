@@ -36,5 +36,7 @@ export { openDictSettings, openDictHistory } from './dict/Dialogs';
 export { openNamesDialog } from './names/NamesDialog';
 export { openTtsMoreDialog, openTtsVoiceDialog, openTtsFilterDialog } from './tts/Dialogs';
 export { openSpeakMenu } from './tts/index';
+export { isTtsActive } from './tts/service';
 // 链接回退栈（features 维护；reader/ui 的「返回」按钮读它的长度，点击时发 linkback.back）
-export { useLinkBack } from './common/linkback';
+export { useLinkBack, pushLinkBackHere } from './common/linkback';
+export { openLinkBackHistory } from './footnote';

@@ -3,7 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#2d2d2d" />
+    <meta name="theme-color" content="#1e88e5" />
+    <!-- PWA（MISC-008）：清单、图标；service worker 由 src/library/pwa.ts 在 http(s) 部署时注册 -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="静读天下" />
     <title>静读天下 Web</title>
   </head>
   <body>
