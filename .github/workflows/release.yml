@@ -10,7 +10,7 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     permissions:
       contents: write # 建 Release、上传附件
     steps:
@@ -22,10 +22,31 @@ jobs:
           node-version: 24
           package-manager-cache: false
 
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      # APK 的 versionName 取自 package.json，tag 要跟它对上
+      - name: Check version
+        run: test "$GITHUB_REF_NAME" = "v$(node -p 'require("./package.json").version')"
+
       - run: npm ci
       - run: npm run typecheck
       - run: npx vitest run
       - run: npm run build:all
+
+      # 发版密钥（keystore 的 base64 与口令）在仓库 secrets 里；缺了就失败，不能退回 debug 签名——签名不同的包没法覆盖安装
+      - name: Build Android
+        env:
+          KEYSTORE_BASE64: ${{ secrets.WANGSHU_KEYSTORE_BASE64 }}
+          WANGSHU_KEYSTORE_PASSWORD: ${{ secrets.WANGSHU_KEYSTORE_PASSWORD }}
+        run: |
+          test -n "$KEYSTORE_BASE64" && test -n "$WANGSHU_KEYSTORE_PASSWORD"
+          export WANGSHU_KEYSTORE="$RUNNER_TEMP/release.jks"
+          base64 -d <<<"$KEYSTORE_BASE64" > "$WANGSHU_KEYSTORE"
+          android/scripts/build.sh release
+          rm -f "$WANGSHU_KEYSTORE"
 
       # 附件名固定不带版本号，README 里可以用 releases/latest/download/<文件名> 直链
       - name: Package
@@ -35,6 +56,7 @@ jobs:
           (cd dist && zip -qr ../release/wangshu-reader-web.zip .)
           cp -r dist dist-server package.json package-lock.json pkg/wangshu-reader-server/
           (cd pkg && zip -qr ../release/wangshu-reader-server.zip wangshu-reader-server)
+          cp android/app/build/outputs/apk/release/app-release.apk release/wangshu-reader-android.apk
           ls -l release
 
       - name: Create release
