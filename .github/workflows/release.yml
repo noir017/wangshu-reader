@@ -1,0 +1,43 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write # 建 Release、上传附件
+    steps:
+      - uses: actions/checkout@v7
+
+      # 发版带写权限：按 setup-node 的建议不用依赖缓存
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npx vitest run
+      - run: npm run build:all
+
+      # 附件名固定不带版本号，README 里可以用 releases/latest/download/<文件名> 直链
+      - name: Package
+        run: |
+          mkdir -p release pkg/wangshu-reader-server
+          cp dist-single/index.html release/wangshu-reader-single.html
+          (cd dist && zip -qr ../release/wangshu-reader-web.zip .)
+          cp -r dist dist-server package.json package-lock.json pkg/wangshu-reader-server/
+          (cd pkg && zip -qr ../release/wangshu-reader-server.zip wangshu-reader-server)
+          ls -l release
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" release/* --title "$GITHUB_REF_NAME" --generate-notes --verify-tag
