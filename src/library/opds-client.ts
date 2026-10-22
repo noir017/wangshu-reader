@@ -1,4 +1,5 @@
 // OPDS 请求与下载（全部经 /api/proxy）。NET-002/003/004/007。
+import { responseErrorText } from '@/core/server';
 import { proxyFetch, type ProxyInit } from '@/storage/http';
 import { fillSearchTemplate, parseOpds, parseOpenSearchDescription, type OpdsFeed } from './opds';
 
@@ -40,7 +41,7 @@ function proxyInit(a: CatalogAuth | undefined, signal?: AbortSignal): ProxyInit 
 export async function fetchFeed(url: string, a?: CatalogAuth, signal?: AbortSignal): Promise<OpdsFeed> {
   const res = await proxyFetch(url, { ...proxyInit(a, signal), headers: { Accept: 'application/atom+xml, application/xml;q=0.9, text/xml;q=0.8, */*;q=0.5' } });
   if (res.status === 401) throw new AuthRequiredError();
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  if (!res.ok) throw new Error(await responseErrorText(res));
   const text = await res.text();
   const finalUrl = res.headers.get('X-Proxy-Final-Url') || url;
   const feed = parseOpds(text, finalUrl);
@@ -106,7 +107,7 @@ export async function downloadFile(
 ): Promise<DownloadResult> {
   const res = await proxyFetch(url, proxyInit(opts.auth, opts.signal));
   if (res.status === 401) throw new AuthRequiredError();
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  if (!res.ok) throw new Error(await responseErrorText(res));
   const total = Number(res.headers.get('Content-Length')) || opts.expectedSize || 0;
   const contentType = res.headers.get('Content-Type') ?? '';
   const fileName = parseContentDisposition(res.headers.get('Content-Disposition'));

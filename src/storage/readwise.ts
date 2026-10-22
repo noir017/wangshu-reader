@@ -1,6 +1,6 @@
 // Readwise 高亮同步（SYNC-012 / ANNO-011）。CORS 实测允许浏览器直连；直连失败再走服务端代理。
 import type { AnnotationRecord, BookRecord } from '@/core/library';
-import { hasServer } from '@/core/server';
+import { describeNetworkError, describeStatus, hasServer } from '@/core/server';
 import { dbEvents, getBook, getDb, getKV, setKV } from './db';
 import { proxyFetch } from './http';
 import { readwiseSettings } from '@/library/settings';
@@ -33,18 +33,19 @@ export async function postHighlights(items: ReadwiseHighlight[], cfg: ReadwiseCo
   try {
     res = await fetchImpl(url, init);
   } catch (e) {
-    if (!hasServer()) throw new ReadwiseError((e as Error).message);
+    if (!hasServer()) throw new ReadwiseError(describeNetworkError(e));
     res = await proxyFetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json;charset=UTF-8', 'X-Proxy-Authorization': `Token ${cfg.token}` }, body: init.body as string });
   }
   if (res.status !== 200) {
-    let msg = res.statusText;
+    let detail: string | undefined;
     try {
       const j = (await res.json()) as { detail?: string; message?: string };
-      msg = j.detail ?? j.message ?? msg;
+      detail = j.detail ?? j.message;
     } catch {
       /* 非 JSON */
     }
-    throw new ReadwiseError(`${res.status} | ${msg}`);
+    // Readwise 给的 detail 是英文原文，附在本地化的状态说明后面
+    throw new ReadwiseError(detail ? `${describeStatus(res.status, res.statusText)} | ${detail}` : describeStatus(res.status, res.statusText));
   }
 }
 
@@ -75,7 +76,7 @@ async function markSent(id: string): Promise<void> {
 /** 手动分享单条（标注列表 ⋮ → Readwise） */
 export async function shareAnnotation(a: AnnotationRecord): Promise<void> {
   const cfg = readwiseSettings.get();
-  if (!cfg.token) throw new ReadwiseError('请先在设置里填写 Readwise Token');
+  if (!cfg.token) throw new ReadwiseError('请先在设置里填写 Readwise 访问令牌');
   const book = await getBook(a.bookId);
   const h = book ? toReadwise(a, book, cfg.withChapter) : null;
   if (!h) throw new ReadwiseError('这条标注没有可分享的原文');

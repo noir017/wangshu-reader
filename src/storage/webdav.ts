@@ -1,6 +1,6 @@
 // WebDAV 客户端（SYNC-008）。只依赖一个 transport 函数，真实环境里它指向服务端 /dav 或 /api/proxy，测试里用 mock。
 // 路径一律是相对 WebDAV 基址、以 / 开头的绝对路径，逐段 encodeURIComponent。
-import { hasServer } from '@/core/server';
+import { hasServer, responseErrorText } from '@/core/server';
 import { DAV_PATH } from '@shared/api';
 import { proxyFetch, serverFetch } from './http';
 import { child, childText, childrenOf, parseXml, walk } from './xml';
@@ -51,7 +51,7 @@ export class DavClient {
 
   private async ok(res: Response, what: string, allow: number[] = []): Promise<Response> {
     if (res.ok || allow.includes(res.status)) return res;
-    throw new DavError(res.status, `WebDAV ${what} 失败：${res.status} ${res.statusText}`);
+    throw new DavError(res.status, `WebDAV ${what} 失败：${await responseErrorText(res)}`);
   }
 
   /** PROPFIND Depth 0/1。目录返回 400 时带尾斜杠重试（fixDir400） */

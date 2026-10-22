@@ -138,7 +138,7 @@ function GridCell(props: CellCommon & { book: BookRecord; index: number }) {
       <div className={s.cellTitle}>{book.title}</div>
       <button
         className={s.cellMore}
-        aria-label="menu"
+        aria-label={t('itemActions')}
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => {
           e.stopPropagation();
@@ -212,7 +212,7 @@ function ListItem(props: CellCommon & BooksViewProps & { book: BookRecord; index
         <button
           className={s.cellMore}
           style={{ opacity: 1, background: 'transparent', color: 'var(--mr-muted)' }}
-          aria-label="menu"
+          aria-label={t('itemActions')}
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation();

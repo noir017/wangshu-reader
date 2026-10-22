@@ -12,6 +12,7 @@ import feat from '../common/features.module.css';
 import { AnnotTab } from './AnnotTab';
 import { ImagesTab } from './ImagesTab';
 import { tt } from './messages';
+import { tc } from '../common/messages';
 import { tocSettings } from './settings';
 import { ancestorKeys, cleanChapterTitle, currentTocIndex, effectiveToc, flattenToc, visibleRows, type FlatToc } from './toc-utils';
 import type { AnnotFilter } from '../annotations/model';
@@ -77,7 +78,7 @@ export function TocPanel({ req, onClose }: { req: TocOpenRequest; onClose: () =>
           <IconButton label={tt('reverse')} active={reversed} onClick={() => tocSettings.set({ chapterReversed: !reversed })}>
             <ArrowUpDown size={19} />
           </IconButton>
-          <IconButton label="close" onClick={onClose}>
+          <IconButton label={tc('close')} onClick={onClose}>
             <X size={20} />
           </IconButton>
         </>
@@ -229,7 +230,7 @@ function TocTree({ session, reversed, onClose }: { session: ReaderSession; rever
                   <button
                     type="button"
                     className={css.arrow}
-                    aria-label="toggle"
+                    aria-label={tc('expand')}
                     data-testid="toc-toggle"
                     onClick={(e) => {
                       e.stopPropagation();

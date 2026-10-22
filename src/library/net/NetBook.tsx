@@ -10,7 +10,7 @@ import { probeSize } from '../opds-client';
 import { downloadName, resolveHref, type OpdsDownload, type OpdsEntry } from '../opds';
 import { enqueueDownload, useDownloads } from '../downloads';
 import { goRead } from '../actions';
-import type { Catalog } from '../catalogs';
+import { catalogTitle, type Catalog } from '../catalogs';
 import { present } from '../dialogs';
 import { Sheet, Row } from '@/ui';
 import { t } from '../i18n';
@@ -68,7 +68,7 @@ function NetBook(props: { entry: OpdsEntry; base: string; catalog?: Catalog; onC
   const running = entry.downloads.some((d) => items.some((x) => x.url === d.href && (x.status === 'running' || x.status === 'queued')));
 
   const start = (d: OpdsDownload) => {
-    enqueueDownload({ title: entry.title, author, url: d.href, ext: d.ext, size: sizeOf(d), coverUrl: entry.cover ?? entry.thumb, catalog: catalog?.title, auth });
+    enqueueDownload({ title: entry.title, author, url: d.href, ext: d.ext, size: sizeOf(d), coverUrl: entry.cover ?? entry.thumb, catalog: catalog && catalogTitle(catalog), auth });
   };
   const download = async () => {
     if (entry.downloads.length === 1) return start(entry.downloads[0]);
@@ -84,7 +84,7 @@ function NetBook(props: { entry: OpdsEntry; base: string; catalog?: Catalog; onC
   };
 
   return (
-    <FullDialog title={catalog?.title ?? t('netTitle')} onClose={props.onClose} width={640}>
+    <FullDialog title={catalog ? catalogTitle(catalog) : t('netTitle')} onClose={props.onClose} width={640}>
       <div style={{ display: 'flex', gap: 14, padding: 16 }}>
         <div style={{ width: 110, flex: 'none' }}>
           <span className={s.cover}>

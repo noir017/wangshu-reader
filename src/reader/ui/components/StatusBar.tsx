@@ -10,6 +10,7 @@ import { ensureFont } from '../services/fonts';
 import { useReaderUi } from '../store';
 import { useRemainingText } from './remaining';
 import { t } from '../messages';
+import { currentLocale } from '@/core/i18n';
 import s from '../reader-ui.module.css';
 
 interface BatteryState {
@@ -51,7 +52,8 @@ export function formatClock(d: Date, use12Hour: boolean, lang: string): string {
 }
 
 function useClock(use12Hour: boolean): string {
-  const lang = navigator.language || 'zh-CN';
+  // 跟界面语言走（不是浏览器语言）：中文界面 12 小时制显示「下午3:05」
+  const lang = currentLocale();
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 15_000);

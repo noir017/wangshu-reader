@@ -60,6 +60,7 @@ export const tt = defineMessages({
     collapseAll: 'Collapse all',
     current: 'Current: {title} ({n}/{total})',
     emptyToc: 'This book has no table of contents',
+    noMatch: 'No matches',
     noBookmark: 'No bookmarks yet…\n\nTap the top-right corner of the page, or “Add new bookmark” below.',
     addNewBookmark: 'Add new bookmark',
     export: 'Export',

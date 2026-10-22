@@ -191,7 +191,7 @@ for (const vp of VIEWPORTS) {
     // ───────────── 书籍信息编辑：系列 / 标签 / 收藏 ─────────────
     const cellOf = (title: string) => page.locator('[data-id]').filter({ has: page.getByText(title, { exact: true }) }).first();
     const bookMenu = async (title: string, item: string | RegExp) => {
-      await cellOf(title).locator('button[aria-label=menu]').click({ force: true });
+      await cellOf(title).locator('button[aria-label="操作"]').click({ force: true });
       await page.getByRole('menuitem', { name: item }).click();
     };
     const editInfo = async (title: string, patch: { series?: string; idx?: string; tags?: string; fav?: string }) => {
@@ -466,7 +466,7 @@ for (const vp of VIEWPORTS) {
       expect(await shownTitles()).toEqual(['Dune']);
       await page.getByRole('button', { name: '关闭' }).click();
       // 从最近阅读里移除（不删文件）
-      await page.locator('[data-id]').filter({ has: page.getByText('红楼梦', { exact: true }) }).locator('button[aria-label=menu]').click({ force: true });
+      await page.locator('[data-id]').filter({ has: page.getByText('红楼梦', { exact: true }) }).locator('button[aria-label="操作"]').click({ force: true });
       await page.getByRole('menuitem', { name: '从最近阅读里移除本书' }).click();
       await page.getByRole('dialog').last().getByRole('button', { name: '是' }).click();
       await expect.poll(shownTitles).toEqual(['黑暗森林', 'Dune', '三体']);

@@ -307,7 +307,7 @@ function AnnotationRow(props: { a: AnnotationRecord; selected: boolean; selectin
             e.stopPropagation();
             props.onMenu(a, e.clientX, e.clientY);
           }}
-          aria-label="menu"
+          aria-label={t('itemActions')}
         >
           <MoreVertical size={18} />
         </button>

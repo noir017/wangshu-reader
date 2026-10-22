@@ -44,7 +44,7 @@ export function DrawerContent(props: { route: string; onGo: () => void }) {
         <button className={s.drawerItem} style={{ flex: 1 }} data-active={active(['shelf'])} onClick={() => { shelfSettings.set({ category: 0, subCollection: '', subAuthor: '' }); go('shelf'); }}>
           <Library size={20} /> <span className={s.grow}>{t('tabShelf')}</span>
         </button>
-        <button className={s.drawerItem} style={{ width: 48, padding: 0, justifyContent: 'center' }} aria-label="favorites" onClick={() => shelfSettings.set({ favoriteOnDrawer: !st.favoriteOnDrawer })}>
+        <button className={s.drawerItem} style={{ width: 48, padding: 0, justifyContent: 'center' }} aria-label={t('shelfFavorites')} onClick={() => shelfSettings.set({ favoriteOnDrawer: !st.favoriteOnDrawer })}>
           {st.favoriteOnDrawer ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
         </button>
       </div>

@@ -10,7 +10,7 @@ import { TopBar } from './TopBar';
 import { recentBooks, useLibrary } from './data';
 import { DEFAULT_FAV, filesSettings, shelfSettings, syncSettings } from './settings';
 import { openBook } from './open';
-import { useCatalogs } from './catalogs';
+import { catalogTitle, useCatalogs } from './catalogs';
 import { computeStatCards, type StatCards } from './stats';
 import { clearAllStatistics } from './actions';
 import { openCloudImport } from './files/CloudImport';
@@ -250,9 +250,9 @@ export function DashPage() {
             {catalogs.map((c) => (
               <div key={c.id} className={s.hitem} style={{ width: 72 }} onClick={() => navigate('net', c.id)}>
                 <div style={{ width: 56, height: 56, margin: '0 auto', borderRadius: 14, background: 'var(--mr-accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 700 }}>
-                  {c.html ? <Server size={26} /> : c.title[0]?.toUpperCase() || <Cloud />}
+                  {c.html ? <Server size={26} /> : catalogTitle(c)[0]?.toUpperCase() || <Cloud />}
                 </div>
-                <div className={s.cap}>{c.title}</div>
+                <div className={s.cap}>{catalogTitle(c)}</div>
               </div>
             ))}
           </div>

@@ -1,6 +1,6 @@
 // 访问服务端的底层封装：与 core/server 的 apiFetch 不同，这里不因非 2xx 抛错（WebDAV/OPDS 需要自己看 401/404/207）。
 import { appSettings } from '@/core/app-settings';
-import { ServerUnavailableError, serverBase } from '@/core/server';
+import { ServerUnavailableError, serverBase, unreachableError } from '@/core/server';
 import { PROXY_PATH } from '@shared/api';
 
 export interface ServerFetchInit extends RequestInit {
@@ -18,7 +18,7 @@ export async function serverFetch(path: string, init: ServerFetchInit = {}): Pro
     return await fetch(base + path, { ...init, headers });
   } catch (e) {
     if ((e as Error).name === 'AbortError') throw e;
-    throw new ServerUnavailableError(`无法连接服务端 ${base}：${(e as Error).message}`);
+    throw unreachableError(base, e);
   }
 }
 

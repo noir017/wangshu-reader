@@ -112,7 +112,7 @@ async function createPort(): Promise<{ port: Worker | null; failure: Promise<nev
   const failure = new Promise<never>((_, reject) => {
     port.addEventListener('error', (e) => {
       console.error('[pdf worker error]', e.message, e.filename, e.lineno);
-      reject(new BookOpenError('unsupported', fmtMsg('pdfWorker', { why: e.message || 'script error' })));
+      reject(new BookOpenError('unsupported', fmtMsg('pdfWorker', { why: e.message || fmtMsg('scriptError') })));
     });
   });
   failure.catch(() => undefined);

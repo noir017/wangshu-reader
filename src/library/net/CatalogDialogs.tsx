@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Button, Sheet, openOverlay, toast } from '@/ui';
 import { CheckBox, Field, TextField } from '../ui-kit';
 import { AuthRequiredError, NotOpdsError, discoverSearch, fetchFeed } from '../opds-client';
-import { calibreUrl, hostOf, saveCatalog, type Catalog } from '../catalogs';
+import { calibreUrl, catalogTitle, hostOf, saveCatalog, type Catalog } from '../catalogs';
 import { netSettings } from '../settings';
 import { present } from '../dialogs';
 import { t } from '../i18n';
@@ -160,7 +160,9 @@ export function openAddCatalog(): void {
 // ───────────── 编辑 ─────────────
 function EditBody(props: { catalog: Catalog; onClose: () => void }) {
   const c = props.catalog;
-  const [title, setTitle] = useState(c.title);
+  // 内置站点显示的是本地化名字；没改名就仍存原文，免得只改账号也被当成「改过」而不再随版本更新
+  const shownTitle = catalogTitle(c);
+  const [title, setTitle] = useState(shownTitle);
   const [url, setUrl] = useState(c.main);
   const [user, setUser] = useState(c.username ?? '');
   const [pw, setPw] = useState(c.password ?? '');
@@ -177,7 +179,7 @@ function EditBody(props: { catalog: Catalog; onClose: () => void }) {
           <Button
             primary
             onClick={async () => {
-              await saveCatalog({ ...c, title: title.trim() || c.title, main: url.trim() || c.main, username: user.trim() || undefined, password: user.trim() ? pw : undefined, search: search.trim() || undefined });
+              await saveCatalog({ ...c, title: title.trim() && title.trim() !== shownTitle ? title.trim() : c.title, main: url.trim() || c.main, username: user.trim() || undefined, password: user.trim() ? pw : undefined, search: search.trim() || undefined });
               props.onClose();
             }}
           >
@@ -193,7 +195,7 @@ function EditBody(props: { catalog: Catalog; onClose: () => void }) {
         <TextField value={url} onChange={setUrl} inputMode="url" />
       </Field>
       {!c.html && (
-        <Field label="Search" hint="{searchTerms}">
+        <Field label={t('netSearchUrl')} hint="{searchTerms}">
           <TextField value={search} onChange={setSearch} inputMode="url" />
         </Field>
       )}

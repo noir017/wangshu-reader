@@ -2,7 +2,13 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import { defineMessages } from '@/core/i18n';
 import s from './ui.module.css';
+
+const t = defineMessages({
+  zh: { close: '关闭' },
+  en: { close: 'Close' },
+});
 
 export { s as uiStyles };
 
@@ -46,7 +52,7 @@ export function Sheet(props: {
           <div className={s.sheetHeader}>
             <div className={s.sheetTitle}>{props.title}</div>
             {props.headerRight}
-            <IconButton label="close" onClick={onClose}>
+            <IconButton label={t('close')} onClick={onClose}>
               <X size={20} />
             </IconButton>
           </div>

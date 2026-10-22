@@ -10,7 +10,7 @@ import { NetImage } from './NetImage';
 import { openNetBook } from './NetBook';
 import { downloadFromLink, openDownloadQueue } from './Downloads';
 import { askLogin, openAddCatalog, openEditCatalog } from './CatalogDialogs';
-import { deleteCatalog, saveCatalog, togglePinCatalog, useCatalogs, type Catalog } from '../catalogs';
+import { catalogSummary, catalogTitle, deleteCatalog, saveCatalog, togglePinCatalog, useCatalogs, type Catalog } from '../catalogs';
 import { AuthRequiredError, NotOpdsError, discoverSearch, fetchFeed, searchFeed, type CatalogAuth } from '../opds-client';
 import { guessPrevUrl, pageInfo, type OpdsEntry, type OpdsFeed } from '../opds';
 import { useDownloads } from '../downloads';
@@ -29,7 +29,7 @@ export function NetPage({ route }: { route: Route }) {
 function Avatar({ c, size = 44 }: { c: Catalog; size?: number }) {
   return (
     <div className={n.avatar} style={{ width: size, height: size, fontSize: size * 0.45 }}>
-      {c.html ? <Server size={size * 0.5} /> : c.title[0]?.toUpperCase() || <Cloud />}
+      {c.html ? <Server size={size * 0.5} /> : catalogTitle(c)[0]?.toUpperCase() || <Cloud />}
     </div>
   );
 }
@@ -39,7 +39,7 @@ function CatalogList() {
   const useGrid = netSettings.use((x) => x.useGrid);
   const [q, setQ] = useState('');
   const active = useDownloads((st) => st.items.filter((x) => x.status === 'running' || x.status === 'queued').length);
-  const list = q ? catalogs.filter((c) => `${c.title} ${c.summary ?? ''}`.toLowerCase().includes(q.toLowerCase())) : catalogs;
+  const list = q ? catalogs.filter((c) => `${c.title} ${c.summary ?? ''} ${catalogTitle(c)} ${catalogSummary(c) ?? ''}`.toLowerCase().includes(q.toLowerCase())) : catalogs;
 
   const open = (c: Catalog) => (c.html ? window.open(c.main, '_blank', 'noopener') : navigate('net', c.id));
   const menu = (c: Catalog, x: number, y: number) =>
@@ -49,7 +49,7 @@ function CatalogList() {
       {
         label: t('delete'),
         onSelect: () =>
-          void confirmDialog(`${t('netDeleteConfirm')} ${c.title}`).then((ok) => {
+          void confirmDialog(`${t('netDeleteConfirm')} ${catalogTitle(c)}`).then((ok) => {
             if (ok) void deleteCatalog(c.id);
           }),
       },
@@ -96,8 +96,8 @@ function CatalogList() {
             {list.map((c) => (
               <div key={c.id} className={n.catCell} onClick={() => open(c)} onContextMenu={(e) => { e.preventDefault(); menu(c, e.clientX, e.clientY); }}>
                 <Avatar c={c} size={60} />
-                <div className={n.catName}>{c.title}</div>
-                <button className={n.catMore} aria-label="menu" onClick={(e) => { e.stopPropagation(); menu(c, e.clientX, e.clientY); }}>
+                <div className={n.catName}>{catalogTitle(c)}</div>
+                <button className={n.catMore} aria-label={t('itemActions')} onClick={(e) => { e.stopPropagation(); menu(c, e.clientX, e.clientY); }}>
                   <MoreVertical size={15} />
                 </button>
               </div>
@@ -110,12 +110,12 @@ function CatalogList() {
               <div className={s.grow}>
                 <div style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {c.pinnedAt ? '📌 ' : ''}
-                  {c.title}
+                  {catalogTitle(c)}
                 </div>
-                {c.summary && <div className={s.dim} style={{ fontSize: 12.5, overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.summary}</div>}
+                {catalogSummary(c) && <div className={s.dim} style={{ fontSize: 12.5, overflow: 'hidden', textOverflow: 'ellipsis' }}>{catalogSummary(c)}</div>}
               </div>
               {c.html && <ExternalLink size={16} style={{ opacity: 0.5 }} />}
-              <button className={s.moreBtn} aria-label="menu" onClick={(e) => { e.stopPropagation(); menu(c, e.clientX, e.clientY); }}>
+              <button className={s.moreBtn} aria-label={t('itemActions')} onClick={(e) => { e.stopPropagation(); menu(c, e.clientX, e.clientY); }}>
                 <MoreVertical size={18} />
               </button>
             </div>
@@ -275,11 +275,11 @@ function Browse({ catalogId }: { catalogId: string }) {
   return (
     <>
       <TopBar
-        title={cur?.feed.title || catalog?.title || t('netTitle')}
-        subtitle={catalog?.title}
+        title={cur?.feed.title || (catalog && catalogTitle(catalog)) || t('netTitle')}
+        subtitle={catalog && catalogTitle(catalog)}
         nav="back"
         onNav={back}
-        search={{ scope: 'net', value: q, onChange: setQ, onSubmit: (k) => void goSearch(k), placeholder: `${t('search')} ${catalog?.title ?? ''}` }}
+        search={{ scope: 'net', value: q, onChange: setQ, onSubmit: (k) => void goSearch(k), placeholder: `${t('search')} ${catalog ? catalogTitle(catalog) : ''}` }}
         actions={
           <>
             <IconButton label={t('netQueue')} onClick={openDownloadQueue}>
