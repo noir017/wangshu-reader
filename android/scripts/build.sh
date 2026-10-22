@@ -27,5 +27,5 @@ cp "$out/server.zip" "$main/assets/server.zip"
 [[ -f "$main/jniLibs/arm64-v8a/libnode.so" ]] || android/scripts/fetch-node.sh
 
 cd android
-./gradlew --no-daemon -q "assemble${variant^}"
+./gradlew --no-daemon -q --stacktrace "assemble${variant^}"
 ls -l app/build/outputs/apk/"$variant"/*.apk

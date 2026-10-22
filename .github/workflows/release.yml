@@ -45,6 +45,7 @@ jobs:
           test -n "$KEYSTORE_BASE64" && test -n "$WANGSHU_KEYSTORE_PASSWORD"
           export WANGSHU_KEYSTORE="$RUNNER_TEMP/release.jks"
           base64 -d <<<"$KEYSTORE_BASE64" > "$WANGSHU_KEYSTORE"
+          keytool -list -keystore "$WANGSHU_KEYSTORE" -storepass "$WANGSHU_KEYSTORE_PASSWORD" -alias wangshu | grep -i fingerprint
           android/scripts/build.sh release
           rm -f "$WANGSHU_KEYSTORE"
 
