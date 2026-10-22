@@ -1,8 +1,23 @@
 # 望舒 Wangshu Reader
 
+[![CI](https://github.com/noir017/wangshu-reader/actions/workflows/ci.yml/badge.svg)](https://github.com/noir017/wangshu-reader/actions/workflows/ci.yml)
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
+
 在浏览器里看电子书的阅读器。整个前端能打包成一个 html 文件，双击就能离线用；另外配了一个可选的 Node 服务端，用来做浏览器自己做不到的事，比如跨域访问网络书库、转换格式、WebDAV 同步、在线朗读。
 
 界面与功能参考 Moon+ Reader（静读天下）。
+
+## 截图
+
+| 书架 | 阅读 | 可视选项 |
+| :---: | :---: | :---: |
+| <img src="docs/screenshots/shelf.webp" width="250" alt="书架"> | <img src="docs/screenshots/reading.webp" width="250" alt="阅读页"> | <img src="docs/screenshots/settings.webp" width="250" alt="可视选项"> |
+| **选字、高亮、笔记** | **夜间** | **网络书库（OPDS）** |
+| <img src="docs/screenshots/annotate.webp" width="250" alt="选字后高亮与笔记"> | <img src="docs/screenshots/night.webp" width="250" alt="夜间主题"> | <img src="docs/screenshots/net-library.webp" width="250" alt="网络书库"> |
+
+<img src="docs/screenshots/desktop-shelf.webp" width="760" alt="桌面浏览器里的书架">
+
+截图里的书都是 Project Gutenberg 的公版书，中文那本是《紅樓夢》，开着繁简转换。
 
 ## 能做什么
 
@@ -14,6 +29,16 @@
 - **网络书库**：OPDS（Gutenberg、Calibre 等），以及浏览服务端上的书库目录。
 - 界面有中文和英文。
 
+## 下载
+
+不想自己构建，可以直接拿构建好的文件：
+
+- **Release**：[最新版](https://github.com/noir017/wangshu-reader/releases/latest)，每个 `v*` tag 自动发布，附三个文件：
+  - `wangshu-reader-single.html`：单文件版
+  - `wangshu-reader-web.zip`：静态网站
+  - `wangshu-reader-server.zip`：服务端部署包（含前端）
+- **CI 产物**：main 上每次提交都会构建，在 [Actions](https://github.com/noir017/wangshu-reader/actions/workflows/ci.yml) 里点开某次运行，底部 Artifacts 里有同样的三样（下载要登录 GitHub，默认保留 90 天）。
+
 ## 三种用法
 
 ### 1. 单文件版
@@ -23,7 +48,7 @@ npm install
 npm run build:single      # 产物：dist-single/index.html
 ```
 
-把 `dist-single/index.html` 拷到任何地方双击打开即可，书和设置都存在浏览器本地（IndexedDB）。需要服务端功能时，在「设置」里填服务端地址。
+把 `dist-single/index.html`（或 Release 里的 `wangshu-reader-single.html`）拷到任何地方双击打开即可，书和设置都存在浏览器本地（IndexedDB）。需要服务端功能时，在「设置」里填服务端地址。
 
 ### 2. 静态网站
 
@@ -31,9 +56,19 @@ npm run build:single      # 产物：dist-single/index.html
 npm run build             # 产物：dist/
 ```
 
-把 `dist/` 放到任意静态服务器上。
+把 `dist/`（或解压后的 `wangshu-reader-web.zip`）放到任意静态服务器上。
 
 ### 3. 带服务端
+
+用 Release 里的部署包：
+
+```bash
+unzip wangshu-reader-server.zip && cd wangshu-reader-server
+npm ci --omit=dev
+MR_HOST=0.0.0.0 MR_TOKEN=换成一个长随机串 MR_LIBRARY_DIR=/path/to/books npm start
+```
+
+或者从源码构建：
 
 ```bash
 npm install
@@ -58,6 +93,8 @@ npm run typecheck
 npm test              # 单元测试（vitest）
 npm run e2e           # 端到端测试（playwright）
 ```
+
+端到端测试要用本地样书（`samples/`，不在仓库里）和系统里的 Chromium，阅读器那部分还得先起 vite、用 `E2E_BASE_URL` 指过去，所以 CI 里不跑。CI 跑的是类型检查、单元测试和三种构建；单元测试里要样书的用例，没有样书时自动跳过。
 
 技术栈：React 19 + TypeScript + Vite + zustand，服务端用 Hono。模块划分见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
 

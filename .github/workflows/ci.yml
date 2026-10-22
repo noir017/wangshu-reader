@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - run: npm run typecheck
+      # 依赖 samples/ 本地样书的用例会自动跳过；端到端测试（playwright）不在 CI 里跑
+      - run: npx vitest run
+      - run: npm run build:all
+
+      - name: Package
+        run: |
+          mkdir -p artifacts/wangshu-reader-server
+          cp dist-single/index.html artifacts/wangshu-reader-single.html
+          cp -r dist dist-server package.json package-lock.json artifacts/wangshu-reader-server/
+
+      - uses: actions/upload-artifact@v7
+        with:
+          path: artifacts/wangshu-reader-single.html
+          archive: false
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wangshu-reader-web
+          path: dist/
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wangshu-reader-server
+          path: artifacts/wangshu-reader-server/
+          if-no-files-found: error
