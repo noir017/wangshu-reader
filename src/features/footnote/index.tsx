@@ -7,7 +7,7 @@ import type { ReaderLocation } from '@/core/reader';
 import { useReaderSession, type ReaderSession } from '@/core/reader-session';
 import { confirmDialog, IconButton, popupMenu, toast } from '@/ui';
 import { useBus, useControllerEvent, useFocusAndEscape, useLongPress } from '../common/hooks';
-import { useLinkBack, linkBackTitle, popLinkBack, popLinkBackTo, pushLinkBack } from '../common/linkback';
+import { clearLinkBack, useLinkBack, linkBackTitle, popLinkBack, popLinkBackTo, pushLinkBack } from '../common/linkback';
 import { placeNear, type Placement } from '../common/position';
 import { sanitizeHtml } from '../common/sanitize';
 import { getSectionText } from '../common/section-text';
@@ -59,24 +59,30 @@ async function backEntryOf(session: ReaderSession, loc: ReaderLocation): Promise
   return { locator: loc.locator, title: linkBackTitle(loc.progress, text.slice(loc.locator.offset, loc.locator.offset + 40), currentLang() === 'zh') };
 }
 
+/**
+ * 链接返回历史菜单（原 navigateBackLinks）：每项是一条记录标题，选中即回到那里（其上的记录一并丢弃）。
+ * 给了 onExit 就在末尾加「退出」（按返回键时用：栈非空时不直接退出，而是弹这个菜单）
+ */
+export function openLinkBackHistory(session: ReaderSession, opts: { x?: number; y?: number; onExit?: () => void } = {}): void {
+  const { stack } = useLinkBack.getState();
+  const items = [...stack].reverse().map((e, i) => ({
+    label: e.title,
+    onSelect: () => {
+      const t = popLinkBackTo(i);
+      if (t) void session.controller.goTo(t.locator);
+    },
+  }));
+  if (opts.onExit) items.push({ label: tf('exit'), onSelect: opts.onExit });
+  popupMenu(opts.x ?? 16, opts.y ?? window.innerHeight - 120 - items.length * 42, items);
+}
+
 function LinkBackButton({ session }: { session: ReaderSession }) {
   const stack = useLinkBack((s) => s.stack);
   const goBack = async () => {
     const e = popLinkBack();
     if (e) await session.controller.goTo(e.locator);
   };
-  const lp = useLongPress(() => showHistory());
-  const showHistory = () => {
-    const { stack } = useLinkBack.getState();
-    const items = [...stack].reverse().map((e, i) => ({
-      label: e.title,
-      onSelect: () => {
-        const t = popLinkBackTo(i);
-        if (t) void session.controller.goTo(t.locator);
-      },
-    }));
-    popupMenu(16, window.innerHeight - 120 - items.length * 42, items);
-  };
+  const lp = useLongPress(() => openLinkBackHistory(session));
   if (!stack.length) return null;
   return createPortal(
     <button
@@ -119,8 +125,8 @@ function LinkBackButton({ session }: { session: ReaderSession }) {
 }
 
 /**
- * showBackButton：是否画 features 自己的「返回」悬浮按钮。reader/ui 已经有一套返回按钮与栈，默认不画，
- * 免得页面上出现两个；栈本身照常维护（搜索导航面板的「返回」用它）。
+ * showBackButton：是否画 features 自己的「返回」悬浮按钮。回退栈只有本模块这一份，reader/ui 读它画自己的返回按钮
+ * （右下悬浮 + 底栏 ↩，点击发 linkback.back），所以阅读页默认不画，免得出现两个；只给 features 的开发页用。
  */
 export function LinkHost({ showBackButton = false }: { showBackButton?: boolean }) {
   const session = useReaderSession();
@@ -133,6 +139,12 @@ export function LinkHost({ showBackButton = false }: { showBackButton?: boolean 
   });
 
   const closeFoot = useCallback(() => setFoot(null), []);
+
+  // 回退栈是模块级状态：换书/离开阅读页时必须清掉，免得带到下一本书
+  useEffect(() => {
+    clearLinkBack();
+    return () => clearLinkBack();
+  }, []);
 
   useControllerEvent('link', (e) => {
     if (e.footnoteHtml) {

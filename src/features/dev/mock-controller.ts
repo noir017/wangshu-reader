@@ -499,6 +499,14 @@ export class MockController implements ReaderController {
     doc.addEventListener('selectionchange', () => this.onNativeSelection());
     doc.addEventListener('keydown', (e) => this.emit('key', { key: e.key, code: e.code, event: e }));
     doc.addEventListener('click', (e) => this.onClick(e));
+    // 与真引擎一致：长按图片才派发 image（单击图片只是普通点击）
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    doc.addEventListener('pointerdown', (e) => {
+      clearTimeout(timer);
+      const img = (e.target as Element).closest?.('img');
+      if (img) timer = setTimeout(() => this.emit('image', { src: img.currentSrc || img.src, alt: img.getAttribute('alt') ?? undefined, rect: this.viewportRect(img) }), 450);
+    });
+    for (const t of ['pointerup', 'pointercancel', 'pointermove']) doc.addEventListener(t, () => clearTimeout(timer));
   }
 
   private viewportRect(el: Element | Range): DOMRect {
@@ -514,11 +522,7 @@ export class MockController implements ReaderController {
     const sel = doc.defaultView!.getSelection();
     if (sel && !sel.isCollapsed) return;
 
-    const img = target.closest('img');
-    if (img) {
-      this.emit('image', { src: img.currentSrc || img.src, alt: img.getAttribute('alt') ?? undefined, rect: this.viewportRect(img) });
-      return;
-    }
+    if (target.closest('img')) return;
     const a = target.closest('a');
     if (a) {
       e.preventDefault();

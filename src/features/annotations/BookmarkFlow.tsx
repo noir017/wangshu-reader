@@ -189,7 +189,7 @@ export function BookmarkCorner() {
   return createPortal(
     <button
       type="button"
-      className={css.floating}
+      className={`${css.floating} ${css.bookmarkCorner}`}
       data-testid="bookmark-corner"
       data-marked={marked ? 'true' : 'false'}
       aria-label={ta('addBookmark')}

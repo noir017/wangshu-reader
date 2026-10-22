@@ -4,6 +4,7 @@ import { useEffect, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { IconButton } from '@/ui';
+import { t } from '../messages';
 import s from '../reader-ui.module.css';
 
 export function Drawer(props: {
@@ -36,7 +37,7 @@ export function Drawer(props: {
       <div className={s.drawer} role="complementary">
         <div className={s.drawerHead}>
           <div className={s.drawerTitle}>{props.title}</div>
-          <IconButton label="close" onClick={onClose}>
+          <IconButton label={t('close')} onClick={onClose}>
             <X size={20} />
           </IconButton>
         </div>

@@ -16,7 +16,7 @@ const DECEL = 2400;
 const EDGE_ZONE = 20;
 const OVERSCROLL_FLIP = 56;
 
-type Mode = 'pending' | 'pan' | 'flip' | 'edge' | 'select' | 'hswipe' | 'vswipe' | 'pinch' | 'longpressed' | 'auto' | 'ignore';
+type Mode = 'pending' | 'pan' | 'flip' | 'edge' | 'edgeH' | 'select' | 'hswipe' | 'vswipe' | 'pinch' | 'longpressed' | 'auto' | 'ignore';
 
 interface Ptr {
   id: number;
@@ -161,6 +161,9 @@ export class FixedInput {
       case 'edge':
         e.emit('verticalDrag', { startX: p.x0, dy, phase: 'move' });
         return;
+      case 'edgeH':
+        e.emit('verticalDrag', { startX: p.x0, startY: p.y0, dy: dx, axis: 'x', phase: 'move' });
+        return;
       case 'select':
         this.extendSelection(pt);
         return;
@@ -186,6 +189,11 @@ export class FixedInput {
     if (vertical && p.type !== 'mouse' && this.inSlideEdge(p.x0)) {
       this.mode = 'edge';
       e.emit('verticalDrag', { startX: p.x0, dy, phase: 'move' });
+      return;
+    }
+    if (!vertical && p.type !== 'mouse' && this.inSlideEdgeH(p.y0)) {
+      this.mode = 'edgeH';
+      e.emit('verticalDrag', { startX: p.x0, startY: p.y0, dy: dx, axis: 'x', phase: 'move' });
       return;
     }
     if (e.mode === 'continuous') {
@@ -219,6 +227,7 @@ export class FixedInput {
     clearTimeout(this.longTimer);
     if (this.mode === 'flip') this.e.animator.dragEnd(0, 0, true);
     if (this.mode === 'edge') this.e.emit('verticalDrag', { startX: p.x0, dy: p.y - p.y0, phase: 'end' });
+    if (this.mode === 'edgeH') this.e.emit('verticalDrag', { startX: p.x0, startY: p.y0, dy: p.x - p.x0, axis: 'x', phase: 'end' });
     this.ptrs.delete(ev.pointerId);
     if (!this.ptrs.size) this.mode = 'pending';
   }
@@ -279,6 +288,9 @@ export class FixedInput {
         return;
       case 'edge':
         e.emit('verticalDrag', { startX: p.x0, dy, phase: 'end' });
+        return;
+      case 'edgeH':
+        e.emit('verticalDrag', { startX: p.x0, startY: p.y0, dy: dx, axis: 'x', phase: 'end' });
         return;
       case 'hswipe':
       case 'vswipe':
@@ -431,6 +443,14 @@ export class FixedInput {
     const c = controlSettings.get();
     const W = this.e.boxW;
     const inside = (edge: number) => (edge === 0 ? x0 < EDGE_ZONE : edge === 1 ? x0 > W - EDGE_ZONE : false);
+    return (c.adjustBrightness && inside(c.brightnessEdge)) || (c.adjustFontSizeAtSlide && inside(c.fontsizeEdge));
+  }
+
+  /** 上/下边沿横擦区（brightness_edge/fontsize_edge = 2 上 / 3 下） */
+  private inSlideEdgeH(y0: number): boolean {
+    const c = controlSettings.get();
+    const H = this.e.boxH;
+    const inside = (edge: number) => (edge === 2 ? y0 < EDGE_ZONE : edge === 3 ? y0 > H - EDGE_ZONE : false);
     return (c.adjustBrightness && inside(c.brightnessEdge)) || (c.adjustFontSizeAtSlide && inside(c.fontsizeEdge));
   }
 

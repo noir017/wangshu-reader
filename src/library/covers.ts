@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import type { BookRecord, CoverKind } from '@/core/library';
 import { dbEvents, getCover, putCover, deleteCover, updateBook } from '@/storage/db';
 import { proxyFetch } from '@/storage/http';
+import { hasServer } from '@/core/server';
 import { shelfSettings } from './settings';
 
 /** 封面查找优先级（LIB-019 的 _3 > _1 > _2 > .png） */
@@ -221,16 +222,65 @@ export interface CoverCandidate {
   title?: string;
 }
 
-async function getJson(url: string): Promise<any> {
-  try {
-    const r = await fetch(url);
-    if (r.ok) return await r.json();
-  } catch {
-    /* CORS 或离线：转走服务端代理 */
+/** 在线搜图失败的原因：限流（429）要和普通失败区分开，界面给出「稍后再试 / 换个来源」的提示 */
+export class CoverSearchError extends Error {
+  constructor(
+    message: string,
+    public source: CoverEngine,
+    public rateLimited = false,
+    /** 服务端给的 Retry-After（秒） */
+    public retryAfter?: number,
+  ) {
+    super(message);
+    this.name = 'CoverSearchError';
   }
-  const r = await proxyFetch(url, { headers: { Accept: 'application/json' } });
-  if (!r.ok) throw new Error(`搜索失败：${r.status}`);
-  return r.json();
+}
+
+export type CoverEngine = 'openlibrary' | 'googlebooks';
+const SITE: Record<CoverEngine, string> = { openlibrary: 'Open Library', googlebooks: 'Google Books' };
+export const coverSiteName = (e: CoverEngine) => SITE[e];
+
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+/** 被限流的来源在冷却期内不再请求（继续撞 429 只会让限流更久） */
+const coolDown = new Map<CoverEngine, number>();
+export const COOL_DOWN_MS = 60_000;
+export const resetCoverCoolDown = () => coolDown.clear();
+
+const retryAfterOf = (r: Response): number | undefined => {
+  const v = Number(r.headers.get('Retry-After'));
+  return Number.isFinite(v) && v > 0 ? v : undefined;
+};
+
+/** 先直连（Open Library / Google Books 都开了 CORS），失败再走服务端代理；429 退避一次，仍被限流就抛 CoverSearchError */
+async function getJson(url: string, engine: CoverEngine): Promise<any> {
+  let status = 0;
+  let retryAfter: number | undefined;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    status = 0;
+    try {
+      const r = await fetch(url);
+      if (r.ok) return await r.json();
+      status = r.status;
+      retryAfter = retryAfterOf(r);
+    } catch {
+      /* CORS 或离线：转走服务端代理 */
+    }
+    if (status !== 429) {
+      try {
+        const r = await proxyFetch(url, { headers: { Accept: 'application/json' } });
+        if (r.ok) return await r.json();
+        status = r.status;
+        retryAfter = retryAfterOf(r) ?? retryAfter;
+      } catch (e) {
+        if (!status) throw new CoverSearchError((e as Error).message, engine);
+      }
+    }
+    if (status !== 429) break;
+    // 429：Retry-After 不长就等一下再试一次（最多等 4 秒）
+    if (attempt === 0 && (retryAfter ?? 1.5) <= 4) await sleep((retryAfter ?? 1.5) * 1000);
+    else break;
+  }
+  throw new CoverSearchError(`${SITE[engine]}: ${status}`, engine, status === 429, retryAfter);
 }
 
 /** 搜索关键字：书名 + 作者，去掉 _ - 与 (TXT)(HTML) 之类标记；太短时补「封面」（原 PrefDownloadCover 的规则） */
@@ -239,53 +289,72 @@ export function coverSearchQuery(title: string, author: string): string {
   return q.length < 8 ? `${q} 封面` : q;
 }
 
-export async function searchCovers(title: string, author: string, engine: 'openlibrary' | 'googlebooks' = 'openlibrary'): Promise<CoverCandidate[]> {
-  const out: CoverCandidate[] = [];
-  const run = async (which: 'openlibrary' | 'googlebooks') => {
+export async function searchCovers(title: string, author: string, engine: CoverEngine = 'openlibrary'): Promise<CoverCandidate[]> {
+  const run = async (which: CoverEngine): Promise<CoverCandidate[]> => {
+    const out: CoverCandidate[] = [];
     if (which === 'openlibrary') {
       const q = encodeURIComponent(`${title} ${author}`.trim());
-      const j = await getJson(`https://openlibrary.org/search.json?q=${q}&limit=24&fields=key,title,cover_i`);
+      const j = await getJson(`https://openlibrary.org/search.json?q=${q}&limit=24&fields=key,title,cover_i`, which);
       for (const d of (j.docs ?? []) as { key: string; title: string; cover_i?: number }[]) {
         if (!d.cover_i) continue;
-        out.push({ id: `ol${d.cover_i}`, thumb: `https://covers.openlibrary.org/b/id/${d.cover_i}-M.jpg`, full: `https://covers.openlibrary.org/b/id/${d.cover_i}-L.jpg`, source: 'Open Library', title: d.title });
+        out.push({ id: `ol${d.cover_i}`, thumb: `https://covers.openlibrary.org/b/id/${d.cover_i}-M.jpg`, full: `https://covers.openlibrary.org/b/id/${d.cover_i}-L.jpg`, source: SITE.openlibrary, title: d.title });
       }
     } else {
       const q = encodeURIComponent(coverSearchQuery(title, author));
-      const j = await getJson(`https://www.googleapis.com/books/v1/volumes?q=${q}&maxResults=20`);
+      const j = await getJson(`https://www.googleapis.com/books/v1/volumes?q=${q}&maxResults=20`, which);
       for (const it of (j.items ?? []) as { id: string; volumeInfo?: { title?: string; imageLinks?: { thumbnail?: string; smallThumbnail?: string } } }[]) {
         const img = it.volumeInfo?.imageLinks?.thumbnail ?? it.volumeInfo?.imageLinks?.smallThumbnail;
         if (!img) continue;
         const https = img.replace(/^http:/, 'https:');
-        out.push({ id: `gb${it.id}`, thumb: https, full: https.replace('zoom=1', 'zoom=2'), source: 'Google Books', title: it.volumeInfo?.title });
+        out.push({ id: `gb${it.id}`, thumb: https, full: https.replace('zoom=1', 'zoom=2'), source: SITE.googlebooks, title: it.volumeInfo?.title });
       }
     }
+    return out;
   };
-  try {
-    await run(engine);
-  } catch (e) {
-    if (engine === 'openlibrary') await run('googlebooks').catch(() => {
-      throw e;
-    });
-    else throw e;
+  // 首选来源没结果或失败，就换另一个；只有两个都没拿到结果时才报错，限流优先报（用户能据此知道该等一等）
+  const order: CoverEngine[] = engine === 'openlibrary' ? ['openlibrary', 'googlebooks'] : ['googlebooks', 'openlibrary'];
+  let failure: Error | undefined;
+  for (const which of order) {
+    const until = coolDown.get(which) ?? 0;
+    if (until > Date.now()) {
+      failure = failure instanceof CoverSearchError && failure.rateLimited ? failure : new CoverSearchError(SITE[which], which, true, Math.ceil((until - Date.now()) / 1000));
+      continue;
+    }
+    try {
+      const items = await run(which);
+      if (items.length) return items;
+    } catch (e) {
+      if (e instanceof CoverSearchError && e.rateLimited) coolDown.set(which, Date.now() + Math.max(COOL_DOWN_MS, (e.retryAfter ?? 0) * 1000));
+      if (!(failure instanceof CoverSearchError && failure.rateLimited)) failure = e as Error;
+    }
   }
-  if (out.length === 0 && engine === 'openlibrary') await run('googlebooks').catch(() => undefined);
-  return out;
+  if (failure) throw failure;
+  return [];
 }
 
-/** 下载封面图为 Blob：先直连，失败再经代理 */
+/**
+ * 下载封面图为 Blob。有服务端时先走代理：OPDS 站点的图片大多不带 CORS 头，直连虽然能被捕获后回退，
+ * 但浏览器会在控制台留一条 CORS 报错；代理失败（或没有服务端）再直连。
+ */
 export async function fetchImageBlob(url: string): Promise<Blob> {
-  try {
+  const viaProxy = async () => {
+    const r = await proxyFetch(url, { headers: { Accept: 'image/*' } });
+    if (!r.ok) throw new Error(`下载封面失败：${r.status}`);
+    const b = await r.blob();
+    if (!b.type.startsWith('image/') && b.size < 200) throw new Error('下载到的不是图片');
+    return b;
+  };
+  const direct = async () => {
     const r = await fetch(url);
-    if (r.ok) {
-      const b = await r.blob();
-      if (b.type.startsWith('image/')) return b;
-    }
-  } catch {
-    /* 转代理 */
+    if (!r.ok) throw new Error(`下载封面失败：${r.status}`);
+    const b = await r.blob();
+    if (!b.type.startsWith('image/')) throw new Error('下载到的不是图片');
+    return b;
+  };
+  if (url.startsWith('data:') || url.startsWith('blob:') || !hasServer()) return direct();
+  try {
+    return await viaProxy();
+  } catch (e) {
+    return direct().catch(() => Promise.reject(e));
   }
-  const r = await proxyFetch(url, { headers: { Accept: 'image/*' } });
-  if (!r.ok) throw new Error(`下载封面失败：${r.status}`);
-  const b = await r.blob();
-  if (!b.type.startsWith('image/') && b.size < 200) throw new Error('下载到的不是图片');
-  return b;
 }

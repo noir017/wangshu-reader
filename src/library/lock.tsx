@@ -127,3 +127,13 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
     </div>
   );
 }
+
+// 阅读页（#/read/…）由 App 直接渲染、不经过书架外壳，所以锁屏要在这里单独拦：
+// 设了启动密码、本次会话还没解锁时，进入阅读页的地址（刷新、直接输入、书签）一律先退回首页，由外壳弹出密码框。
+function guardReadRoute(): void {
+  if (!isUnlocked() && /^#\/read(\/|$|\?)/.test(globalThis.location?.hash ?? '')) globalThis.location.hash = '#/';
+}
+if (typeof window !== 'undefined') {
+  guardReadRoute();
+  window.addEventListener('hashchange', guardReadRoute);
+}

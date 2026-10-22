@@ -85,7 +85,10 @@ export async function listCatalogs(): Promise<Catalog[]> {
       dirty = true;
     }
   }
-  const list = [...byId.values()];
+  // 已删除的内置站点：即使列表里还残留（旧版本的删除竞态），也不再显示
+  const isDeadBuiltin = (c: Catalog) => deleted.has(c.id) && BUILTIN_CATALOGS.some((b) => b.id === c.id);
+  if ([...byId.values()].some(isDeadBuiltin)) dirty = true;
+  const list = [...byId.values()].filter((c) => !isDeadBuiltin(c));
   if (dirty) await setKV(KEY, list);
   return sortCatalogs(list);
 }
@@ -107,11 +110,10 @@ export async function saveCatalog(c: Omit<Catalog, 'id' | 'addedAt'> & { id?: st
 }
 
 export async function deleteCatalog(id: string): Promise<void> {
+  // 内置站点先记墓碑再删：删列表会触发 useCatalogs 重新 listCatalogs，墓碑晚一步写的话内置站点会被当成「新出现」合并回去
+  if (BUILTIN_CATALOGS.some((b) => b.id === id)) await setKV(DELETED_KEY, [...new Set([...((await getKV<string[]>(DELETED_KEY)) ?? []), id])]);
   const list = (await getKV<Catalog[]>(KEY)) ?? [];
-  const cur = list.find((x) => x.id === id);
   await setKV(KEY, list.filter((x) => x.id !== id));
-  // 内置站点记墓碑，避免下次启动又被恢复
-  if (cur?.builtin || BUILTIN_CATALOGS.some((b) => b.id === id)) await setKV(DELETED_KEY, [...new Set([...((await getKV<string[]>(DELETED_KEY)) ?? []), id])]);
 }
 
 export async function togglePinCatalog(id: string): Promise<void> {

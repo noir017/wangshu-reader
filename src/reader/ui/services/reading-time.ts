@@ -15,8 +15,8 @@ export function countWords(text: string): number {
 }
 
 export interface ReadingTrackerOptions {
-  /** 写库（通常是 addReadingTime(bookId, ms, words)） */
-  save(ms: number, words: number): void | Promise<void>;
+  /** 写库（通常是 addReadingTime(bookId, ms, words, at, pages)） */
+  save(ms: number, words: number, pages: number): void | Promise<void>;
   now?: () => number;
   isVisible?: () => boolean;
   /** 写库间隔，毫秒 */
@@ -26,6 +26,7 @@ export interface ReadingTrackerOptions {
 export class ReadingTracker {
   private pendingMs = 0;
   private pendingWords = 0;
+  private pendingPages = 0;
   private lastTick: number;
   private lastActive: number;
   private lastFlush: number;
@@ -66,6 +67,11 @@ export class ReadingTracker {
     if (n > 0) this.pendingWords += n;
   }
 
+  /** 前进翻页，累计页数（统计卡片的「页数」） */
+  addPages(n: number): void {
+    if (n > 0) this.pendingPages += n;
+  }
+
   /** 每秒（或更低频）调用 */
   tick(): void {
     const n = this.now();
@@ -82,11 +88,13 @@ export class ReadingTracker {
   flush(): void {
     const ms = Math.round(this.pendingMs);
     const words = this.pendingWords;
+    const pages = this.pendingPages;
     this.lastFlush = this.now();
-    if (ms <= 0 && words <= 0) return;
+    if (ms <= 0 && words <= 0 && pages <= 0) return;
     this.pendingMs = 0;
     this.pendingWords = 0;
-    void this.opts.save(ms, words);
+    this.pendingPages = 0;
+    void this.opts.save(ms, words, pages);
   }
 
   /** 重置连续阅读计时（提醒后） */

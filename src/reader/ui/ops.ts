@@ -1,5 +1,7 @@
 // 对当前阅读会话的操作封装：翻页、换章、跳转、链接返回。动作分发器、底栏、面板共用。
 import type { Locator } from '@/core/book';
+import { pushLinkBackHere } from '@/features';
+import { fixedSettings } from '@/reader/settings';
 import { toast } from '@/ui';
 import { t } from './messages';
 import { useReaderUi } from './store';
@@ -10,16 +12,25 @@ export function currentLocator(): Locator | null {
   return useReaderUi.getState().loc?.locator ?? getSession()?.controller.getLocation()?.locator ?? null;
 }
 
-/** 记录当前位置供「↩」回退（拖进度条、换章、跳转前调用） */
+/** 记录当前位置供「↩」回退（拖进度条、换章、跳转前调用）。回退栈只有一份，由 features 维护 */
 export function saveLinkBack(): void {
-  const l = currentLocator();
-  if (l) useReaderUi.getState().pushLinkBack(l);
+  const s = getSession();
+  if (s) pushLinkBackHere(s.controller);
 }
 
-export async function goLinkBack(): Promise<void> {
-  const s = getSession();
-  const l = useReaderUi.getState().popLinkBack();
-  if (s && l) await s.controller.goTo(l);
+/** 「↩」：让 features 弹出栈顶并跳回去 */
+export function goLinkBack(): void {
+  getSession()?.bus.emit('linkback.back', {});
+}
+
+/**
+ * 右到左漫画（日漫）：点击区与方向键的左右要反过来（点左边 = 下一页）。
+ * 判据与引擎一致：漫画格式 && (用户设置 comicRtl || 书里声明 direction=rtl)；翻页/滑动的方向本身由引擎处理
+ */
+export function isRtlComic(): boolean {
+  const book = getSession()?.book;
+  if (!book || book.kind !== 'fixed' || !['cbz', 'cbr', 'cb7'].includes(book.format)) return false;
+  return fixedSettings.get().comicRtl || book.metadata?.direction === 'rtl';
 }
 
 export async function pageNext(): Promise<void> {

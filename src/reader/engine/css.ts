@@ -121,7 +121,7 @@ body{
   text-rendering:optimizeLegibility;
 }
 p{margin-top:0;margin-bottom:${paragraphGap(c).toFixed(2)}px;${indent ? `text-indent:${indent}em;` : ''}}
-h1,h2,h3,h4,h5,h6{text-indent:0}
+h1,h2,h3,h4,h5,h6{text-indent:0}${indent ? '\n.mr-ind{display:none}' : ''}
 :where(a){color:${linkColor}${important};text-decoration:none}
 :where(a.mr-visited){color:${visited}${important}}
 ::selection{background:rgba(66,133,244,.38)}

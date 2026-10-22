@@ -2,7 +2,7 @@
 import { useEffect, type RefObject } from 'react';
 import type { ReaderLocation } from '@/core/reader';
 import type { ReaderSession } from '@/core/reader-session';
-import { ReaderAction, controlSettings, flipSettings, screenSettings, themeSettings } from '@/reader/settings';
+import { ReaderAction, controlSettings, flipSettings, screenSettings, textSettings, themeSettings } from '@/reader/settings';
 import { confirmDialog, toast } from '@/ui';
 import { performAction, type ActionHost } from '../actions/actions';
 import { bindController, createInputHandlers, handledKeys, type InputHandlers } from '../actions/input';
@@ -13,6 +13,7 @@ import { PAGE_SOUND_USER, pageSound } from '../services/page-sound';
 import { loadUserPageSound } from '../settings/MiscDialogs';
 import { AwakeController, applyScreenState, enterFullscreen, exitFullscreen, fullscreenSupported, isFullscreen } from '../services/system';
 import { setBrightness } from '../services/brightness-actions';
+import { ensureFont } from '../services/fonts';
 import { autoThemeDecision, loadTheme } from '../themes/theme-manager';
 import { uiSettings } from '../ui-settings';
 import { useReaderUi } from '../store';
@@ -99,6 +100,18 @@ export function useLocationState(session: ReaderSession | null): void {
     if (first) useReaderUi.getState().setLoc(first);
     return off;
   }, [session]);
+}
+
+/**
+ * 正文字体是用户/服务端字体时，进阅读页和换字体时确认它能加载：失败提示一次并降级
+ * （引擎侧 font-family 自带 serif 兜底，正文本身不会坏；服务端 /api/fonts 会列出 .ttc，浏览器 @font-face 多半不支持）
+ */
+export function useFontCheck(session: ReaderSession | null): void {
+  const name = textSettings.use((x) => x.fontName);
+  useEffect(() => {
+    if (!session || !/^(font|server):/.test(name)) return;
+    void ensureFont(name);
+  }, [session, name]);
 }
 
 /** 常亮、屏幕方向、全屏（用户/服务端字体由引擎自己注入章节 iframe，这里不管） */

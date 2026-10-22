@@ -1,12 +1,12 @@
 // 导入相关的界面：导入对话框、扫描结果选择列表、进度框、新书列表（LIB-021/022/023）。
 import { useMemo, useState, useSyncExternalStore } from 'react';
 import { FileUp, FolderOpen } from 'lucide-react';
-import { Button, Sheet, openOverlay, toast } from '@/ui';
+import { Button, Sheet, confirmDialog, openOverlay, toast } from '@/ui';
 import type { BookRecord } from '@/core/library';
 import { goRead } from './actions';
 import { CheckBox, Field, FullDialog, ProgressLine, TextField } from './ui-kit';
 import { itemsFromDrop, pickFiles } from './import-collect';
-import { importFiles, markImported, passesScanFilter, extOf, type ImportItem, type ImportOptions, type ImportResult, type ScanEntry } from './import';
+import { asTextItem, importFiles, markImported, passesScanFilter, extOf, type ImportItem, type ImportOptions, type ImportResult, type ScanEntry } from './import';
 import { shelfSettings, DEFAULT_FAV } from './settings';
 import { TYPE_GROUPS } from './shelf-model';
 import { formatDate, formatSize } from './format';
@@ -104,10 +104,19 @@ export async function importWithUi(items: ImportItem[], opts: ImportOptions = {}
     close();
   }
   summarize(res, abort.signal.aborted);
+  // 类型不受支持的文件：问一句是否以纯文本模式打开（LIB-035，原「该文件类型不受支持，是否以纯文本模式打开？」）
+  const unsupported = items.filter((it) => res.failed.some((f) => f.unsupported && f.name === it.file.name));
+  if (unsupported.length && !abort.signal.aborted && (await confirmDialog(t('importAsTextAsk', { n: unsupported.length }), { okText: t('importAsText') }))) {
+    const again = await importFiles(unsupported.map(asTextItem), opts);
+    const one = unsupported.length === 1 ? (again.added[0] ?? again.existing[0]) : undefined;
+    summarize(again, false, !one); // 只有一本就直接打开它，不再弹「新导入的书」
+    if (one) goRead(one.id);
+    return { added: [...res.added, ...again.added], existing: [...res.existing, ...again.existing], failed: [...res.failed.filter((f) => !f.unsupported), ...again.failed] };
+  }
   return res;
 }
 
-function summarize(res: ImportResult, aborted: boolean): void {
+function summarize(res: ImportResult, aborted: boolean, showNewBooks = true): void {
   if (aborted) toast(t('importCancelled'));
   const parts: string[] = [];
   if (res.added.length) parts.push(t('importDone', { n: res.added.length }));
@@ -115,7 +124,7 @@ function summarize(res: ImportResult, aborted: boolean): void {
   if (res.existing.length) parts.push(t('importExisting', { n: res.existing.length }));
   if (res.failed.length) parts.push(t('importFailedN', { n: res.failed.length }));
   if (parts.length) toast(parts.join('；'), 3500);
-  if (res.added.length > 0) openOverlay((close) => <NewBooksDialog books={res.added} onClose={close} />);
+  if (showNewBooks && res.added.length > 0) openOverlay((close) => <NewBooksDialog books={res.added} onClose={close} />);
 }
 
 // ───────────── 新书列表 ─────────────

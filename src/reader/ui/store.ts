@@ -1,6 +1,5 @@
 // 阅读页界面状态（zustand）：菜单栏、面板、定位、自动滚屏状态等。设置类状态在 reader/settings.ts，不在这里。
 import { create } from 'zustand';
-import type { Locator } from '@/core/book';
 import type { ReaderLocation } from '@/core/reader';
 import type { ReaderSession } from '@/core/reader-session';
 
@@ -18,8 +17,6 @@ export interface ReaderUiState {
   autoRunning: boolean;
   autoPaused: boolean;
   speedRead: boolean;
-  /** 链接返回栈（VIEW-017） */
-  linkBack: Locator[];
   /** 书籍是否仍在加载 */
   ready: boolean;
   setSession(s: ReaderSession | null): void;
@@ -30,9 +27,6 @@ export interface ReaderUiState {
   setPanel(p: PanelId): void;
   setAuto(p: { running?: boolean; paused?: boolean }): void;
   setSpeedRead(v: boolean): void;
-  pushLinkBack(l: Locator): void;
-  popLinkBack(): Locator | undefined;
-  clearLinkBack(): void;
 }
 
 export const useReaderUi = create<ReaderUiState>((set, get) => ({
@@ -44,7 +38,6 @@ export const useReaderUi = create<ReaderUiState>((set, get) => ({
   autoRunning: false,
   autoPaused: false,
   speedRead: false,
-  linkBack: [],
   ready: false,
   setSession: (session) => set({ session, ready: !!session }),
   setLoc: (loc) => set({ loc }),
@@ -55,22 +48,9 @@ export const useReaderUi = create<ReaderUiState>((set, get) => ({
   setPanel: (panel) => set((s) => ({ panel, menu: panel ? false : s.menu })),
   setAuto: (p) => set((s) => ({ autoRunning: p.running ?? s.autoRunning, autoPaused: p.paused ?? s.autoPaused })),
   setSpeedRead: (speedRead) => set({ speedRead }),
-  pushLinkBack: (l) =>
-    set((s) => {
-      const last = s.linkBack[s.linkBack.length - 1];
-      if (last && last.section === l.section && last.offset === l.offset) return s;
-      return { linkBack: [...s.linkBack.slice(-19), l] };
-    }),
-  popLinkBack: () => {
-    const st = get().linkBack;
-    const l = st[st.length - 1];
-    if (l) set({ linkBack: st.slice(0, -1) });
-    return l;
-  },
-  clearLinkBack: () => set({ linkBack: [] }),
 }));
 
 /** 重置（离开阅读页时） */
 export function resetReaderUi(): void {
-  useReaderUi.setState({ session: null, loc: null, menu: false, hideTop: false, panel: null, autoRunning: false, autoPaused: false, speedRead: false, linkBack: [], ready: false });
+  useReaderUi.setState({ session: null, loc: null, menu: false, hideTop: false, panel: null, autoRunning: false, autoPaused: false, speedRead: false, ready: false });
 }

@@ -60,7 +60,7 @@ function useClock(use12Hour: boolean): string {
   return useMemo(() => formatClock(now, use12Hour, lang), [now, use12Hour, lang]);
 }
 
-function Seg(props: { click: ReaderActionId; long: ReaderActionId; className?: string; children: ReactNode }) {
+function Seg(props: { click: ReaderActionId; long: ReaderActionId; className?: string; testId?: string; children: ReactNode }) {
   const host = useHost();
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const fired = useRef(false);
@@ -70,6 +70,7 @@ function Seg(props: { click: ReaderActionId; long: ReaderActionId; className?: s
       type="button"
       className={`${s.statusSeg} ${props.className ?? ''}`}
       data-click={clickable ? 'true' : undefined}
+      data-testid={props.testId}
       tabIndex={clickable ? 0 : -1}
       style={{ pointerEvents: clickable ? 'auto' : 'none' }}
       onPointerDown={() => {
@@ -141,7 +142,7 @@ export function StatusBar() {
       )}
       <div className={s.status} style={style}>
         {st.statusTime ? (
-          <Seg click={c.statusClickLeft} long={c.statusLongClickLeft}>
+          <Seg testId="status-time" click={c.statusClickLeft} long={c.statusLongClickLeft}>
             {battery && (
               <span className={s.battery} title={`${Math.round(battery.level * 100)}%`}>
                 <span className={s.batteryFill} style={{ width: `${Math.round(battery.level * 100) * 0.16}px` }} />
@@ -153,14 +154,14 @@ export function StatusBar() {
           <span />
         )}
         {st.statusChapter ? (
-          <Seg className={s.statusMid} click={c.statusClickMiddle} long={c.statusLongClickMiddle}>
+          <Seg testId="status-chapter" className={s.statusMid} click={c.statusClickMiddle} long={c.statusLongClickMiddle}>
             <span className={s.statusText}>{[chapter, st.remainingTimeInStatusBar ? remaining : ''].filter(Boolean).join('  ')}</span>
           </Seg>
         ) : (
           <span style={{ flex: 1 }} />
         )}
         {st.statusProgress ? (
-          <Seg click={c.statusClickRight} long={c.statusLongClickRight}>
+          <Seg testId="status-progress" click={c.statusClickRight} long={c.statusLongClickRight}>
             <span>{pct}</span>
           </Seg>
         ) : (

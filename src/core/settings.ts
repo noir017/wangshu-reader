@@ -23,16 +23,24 @@ interface SettingsState {
 const useStore = create<SettingsState>(() => ({ values: loadPersisted() }));
 
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
-useStore.subscribe((s) => {
+function persist(): void {
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    try {
-      globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(s.values));
-    } catch {
-      /* 配额满或隐私模式：忽略，内存里的值照常可用 */
-    }
-  }, 200);
+  saveTimer = undefined;
+  try {
+    globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(useStore.getState().values));
+  } catch {
+    /* 配额满或隐私模式：忽略，内存里的值照常可用 */
+  }
+}
+useStore.subscribe(() => {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(persist, 200);
 });
+// 去抖期间关页/刷新/切到后台：立即落盘，否则刚改的设置（如刚关掉启动密码）会丢
+if (typeof window !== 'undefined') {
+  window.addEventListener('pagehide', () => saveTimer !== undefined && persist());
+  document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' && saveTimer !== undefined && persist());
+}
 
 export interface SettingsSlice<T extends Values> {
   readonly ns: string;

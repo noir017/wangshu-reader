@@ -7,6 +7,7 @@ import { appSettings, type Lang } from '@/core/app-settings';
 import { checkServer, hasServer } from '@/core/server';
 import { screenSettings } from '@/reader/settings';
 import { setKV } from '@/storage/db';
+import { serverFetch } from '@/storage/http';
 import { emptyShelf } from '../actions';
 import { formatSize } from '../format';
 import { openImportDialog } from '../ImportDialogs';
@@ -240,7 +241,7 @@ function LockDialog({ enabled, onClose }: { enabled: boolean; onClose: () => voi
 function ServerSection() {
   const [url, setUrl] = useState(() => appSettings.get().serverUrl);
   const [token, setToken] = useState(() => appSettings.get().serverToken);
-  const [state, setState] = useState<'idle' | 'checking' | 'ok' | 'fail'>('idle');
+  const [state, setState] = useState<'idle' | 'checking' | 'ok' | 'fail' | 'auth'>('idle');
   const check = async () => {
     appSettings.set({ serverUrl: url.trim().replace(/\/+$/, ''), serverToken: token.trim() });
     if (!hasServer()) {
@@ -248,7 +249,10 @@ function ServerSection() {
       return;
     }
     setState('checking');
-    setState((await checkServer(true)) ? 'ok' : 'fail');
+    if (!(await checkServer(true))) return setState('fail');
+    // /api/health 不要求令牌，连得上不代表令牌对：再请求一个需要鉴权的接口
+    const probe = await serverFetch('/api/translate/providers').catch(() => undefined);
+    setState(probe?.status === 401 ? 'auth' : 'ok');
   };
   return (
     <>
@@ -264,6 +268,7 @@ function ServerSection() {
         <Button primary onClick={() => void check()}>{t('serverCheck')}</Button>
         {state === 'ok' && <span style={{ color: '#2e7d32' }}>{t('serverOk')}</span>}
         {state === 'fail' && <span style={{ color: '#e53935' }}>{t('serverFail')}</span>}
+        {state === 'auth' && <span style={{ color: '#e53935' }}>{t('serverBadToken')}</span>}
       </div>
     </>
   );

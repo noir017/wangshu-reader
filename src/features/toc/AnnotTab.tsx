@@ -9,6 +9,7 @@ import { formatDateTime, percentStr } from '../common/format';
 import { useLongPress } from '../common/hooks';
 import { tc } from '../common/messages';
 import { goToAnnotation, removeAnnotation, removeAnnotations } from '../annotations/actions';
+import { pushLinkBackHere } from '../common/linkback';
 import { editBookmark, toggleBookmark } from '../annotations/BookmarkFlow';
 import { removeHlAllByText } from '../annotations/highlight-all';
 import { matchFilter, matchKeyword, sortAnnotations, usedColors, type AnnotFilter } from '../annotations/model';
@@ -269,6 +270,7 @@ export function AnnotTab(p: {
               selected={sel.has(a.id)}
               onOpen={() => {
                 onClose();
+                pushLinkBackHere(session.controller); // 原版目录对话框（PrefChapters.onGetChapter）跳转前都压回退栈
                 void goToAnnotation(session, a);
               }}
               onToggle={() =>

@@ -1,10 +1,12 @@
 // 顶栏、底栏（进度条 + 章节切换 + 百分比 + 回退 + 工具按钮行），VIEW-002 / VIEW-003 / VIEW-004。
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ChevronLeft, ChevronRight, EllipsisVertical, Undo2 } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, EllipsisVertical, Undo2, WrapText } from 'lucide-react';
 import { navigate } from '@/core/router';
+import { useLinkBack } from '@/features';
 import { Slider as _s, promptDialog, toast } from '@/ui';
-import { controlSettings } from '@/reader/settings';
+import { controlSettings, fixedSettings } from '@/reader/settings';
 import { normalizeToolbar, uiSettings } from '../ui-settings';
+import { canReflow, isReflowed } from '../session/pdf-reflow';
 import { useHost } from '../context';
 import { goLinkBack, goToProgress, parsePercentInput, percentText, saveLinkBack, stepChapter } from '../ops';
 import { useReaderUi } from '../store';
@@ -43,7 +45,10 @@ export function TopBar() {
 export function BottomBar() {
   const menu = useReaderUi((x) => x.menu);
   const loc = useReaderUi((x) => x.loc);
-  const canBack = useReaderUi((x) => x.linkBack.length > 0);
+  const canBack = useLinkBack((x) => x.stack.length > 0);
+  const book = useReaderUi((x) => x.session?.book);
+  const reflowOn = fixedSettings.use((x) => x.textReflow);
+  const reflowable = !!book && (canReflow(book) || isReflowed(book));
   const [drag, setDrag] = useState<number | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const started = useRef(false);
@@ -108,7 +113,21 @@ export function BottomBar() {
         >
           {pct}
         </button>
-        <button type="button" className={s.barBtn} aria-label={t('link_back')} disabled={!canBack} onClick={() => void goLinkBack()}>
+        {reflowable && (
+          // PDF 文本重排（PDF-006，原版进度栏上的 chromeIv）：按下 = 重排模式
+          <button
+            type="button"
+            className={s.barBtn}
+            aria-label={t('text_reflow')}
+            title={t('text_reflow')}
+            aria-pressed={reflowOn}
+            style={reflowOn ? { color: 'var(--mr-accent)' } : undefined}
+            onClick={() => fixedSettings.set({ textReflow: !fixedSettings.get().textReflow })}
+          >
+            <WrapText size={20} />
+          </button>
+        )}
+        <button type="button" className={s.barBtn} aria-label={t('link_back')} disabled={!canBack} onClick={goLinkBack}>
           <Undo2 size={20} />
         </button>
         <button type="button" className={s.barBtn} aria-label={t('next_chapter')} onClick={() => stepFromBar(1)}>

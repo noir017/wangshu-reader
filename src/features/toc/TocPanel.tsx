@@ -16,6 +16,7 @@ import { tocSettings } from './settings';
 import { ancestorKeys, cleanChapterTitle, currentTocIndex, effectiveToc, flattenToc, visibleRows, type FlatToc } from './toc-utils';
 import type { AnnotFilter } from '../annotations/model';
 import { peekLocation } from '../common/safe';
+import { pushLinkBackHere } from '../common/linkback';
 
 export type TocTab = 'toc' | 'bookmarks' | 'images';
 
@@ -166,6 +167,8 @@ function TocTree({ session, reversed, onClose }: { session: ReaderSession; rever
   const go = useCallback(
     (r: FlatToc) => {
       onClose();
+      // 跳转前压回退栈（原版 PrefChapters.onGetChapter → saveLinkBackInfo），右下角出现「回退」
+      pushLinkBackHere(controller);
       void controller.goTo({ section: r.entry.section, anchor: r.entry.anchor });
     },
     [controller, onClose],

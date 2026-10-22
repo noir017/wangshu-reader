@@ -4,15 +4,15 @@ import { apiFetch, apiJson, apiPostJson, hasServer, serverBase } from '@/core/se
 import { appSettings } from '@/core/app-settings';
 import { serverFetch } from '@/storage/http';
 
-export type LibraryAvailability = { ok: true } | { ok: false; reason: 'no-server' | 'unreachable' | 'no-library' };
+export type LibraryAvailability = { ok: true } | { ok: false; reason: 'no-server' | 'unreachable' | 'no-library'; /** 连不上时服务端/网络给的原因（如跨站请求被拒、令牌错误） */ message?: string };
 
 export async function checkLibrary(): Promise<LibraryAvailability> {
   if (!hasServer()) return { ok: false, reason: 'no-server' };
   try {
     const h = await apiJson<HealthResponse>('/api/health');
     return h.features?.library ? { ok: true } : { ok: false, reason: 'no-library' };
-  } catch {
-    return { ok: false, reason: 'unreachable' };
+  } catch (e) {
+    return { ok: false, reason: 'unreachable', message: (e as Error).message };
   }
 }
 

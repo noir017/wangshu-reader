@@ -1,5 +1,5 @@
 // 书架模块的外壳：抽屉/侧栏 + 路由到各页 + 全局拖放导入 + 启动密码 + 继续阅读浮动按钮。
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Play } from 'lucide-react';
 import { Sheet } from '@/ui';
 import { back, navigate, type Route } from '@/core/router';
@@ -26,6 +26,8 @@ import { t } from './i18n';
 import s from './library.module.css';
 
 const FAB_ROUTES = new Set(['', 'recent', 'shelf', 'files', 'net']);
+/** 五个标签页（首页/书架/文件/网上书库/书签），LIB-001 记住最后停留的一个 */
+const TAB_ROUTES = new Set(['', 'shelf', 'files', 'net', 'notes']);
 
 export function LibraryShell({ route }: { route: Route }) {
   useApplyUiTheme();
@@ -36,7 +38,21 @@ export function LibraryShell({ route }: { route: Route }) {
   const hideFab = shelfSettings.use((x) => x.hideFab);
   const simpleRecent = shelfSettings.use((x) => x.simpleRecentList);
 
-  useEffect(() => runStartup(route.name), []); // eslint-disable-line react-hooks/exhaustive-deps
+  // 冷启动回到上次的标签页（原 lastDash）：只在地址里没有路由时恢复；读的是挂载时的值，随后才开始记录新的
+  const startTab = useRef(shelfSettings.get().lastTab);
+  useEffect(() => {
+    runStartup(route.name);
+    const h = globalThis.location.hash;
+    if ((h === '' || h === '#' || h === '#/') && startTab.current && startTab.current !== route.name && TAB_ROUTES.has(startTab.current)) {
+      globalThis.location.replace(`#/${startTab.current}`);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (TAB_ROUTES.has(route.name) && route.name !== startTab.current) {
+      shelfSettings.set({ lastTab: route.name });
+      startTab.current = '';
+    }
+  }, [route.name]);
 
   // 自动导入已链接目录里的新书（LIB-024）：进入书架、窗口重新获得焦点时扫描
   useEffect(() => {

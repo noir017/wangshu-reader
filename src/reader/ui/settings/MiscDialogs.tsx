@@ -34,10 +34,12 @@ export function openEdgeDialog(which: 'brightness' | 'fontsize'): void {
               <Segmented
                 value={v}
                 onChange={(nv) => controlSettings.set({ [k]: nv })}
-                // 上/下边需要横向拖动事件，引擎只上报竖向拖动，所以只提供左/右
+                // 左/右边沿上下滑；上/下边沿左右擦（往左 = 变亮/变大）
                 options={[
                   { value: 0, label: t('pref_edge_left') },
                   { value: 1, label: t('pref_edge_right') },
+                  { value: 2, label: t('pref_edge_top') },
+                  { value: 3, label: t('pref_edge_bottom') },
                 ]}
               />
             }

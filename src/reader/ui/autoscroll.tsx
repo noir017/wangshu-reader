@@ -50,19 +50,16 @@ export function stopAutoScroll(opts: { silent?: boolean } = {}): void {
   if (was && !opts.silent) toast(t('scroll_cancel'));
 }
 
-/** 单击：暂停/继续。引擎没有暂停接口，暂停 = 停止滚动但保留「已暂停」状态，继续 = 重新开始 */
+/**
+ * 单击：暂停/继续。滚屏运行时触摸由引擎自己处理（单击暂停/继续、上下拖调速、横拖停止，都不再上报 tap），
+ * 所以界面侧只会在「已暂停」时走到这里（继续）；运行中走到这里没有对应的引擎接口，只能整个停止
+ */
 export function pauseOrResume(): void {
   const ui = useReaderUi.getState();
   const c = getSession()?.controller;
   if (!c) return;
-  if (ui.autoPaused) {
-    ui.setAuto({ running: true, paused: false });
-    c.startAutoScroll();
-  } else if (ui.autoRunning) {
-    ui.setAuto({ paused: true });
-    c.stopAutoScroll();
-    toast(t('pause'));
-  }
+  if (ui.autoPaused) c.startAutoScroll(); // 引擎已开启但暂停时，start() 是原地继续
+  else if (ui.autoRunning) stopAutoScroll();
 }
 
 /** 速度 ±（原版每 20dp 一档）：delta > 0 加快 */
@@ -77,20 +74,24 @@ export function changeSpeed(delta: number): void {
 let lastEngineSpeed: number | null = null;
 
 /**
- * 引擎 autoScroll 事件 → 界面状态。滚屏运行时，点击暂停/继续、上下拖调速、横拖停止都由引擎自己处理（它不再上报 tap），
- * 暂停和停止对外是同一个 {running:false}，没法区分：界面主动停止时已先清掉状态，所以这里凡是「界面以为在滚、引擎说没在滚」
- * 都当作暂停（再点一下由 tap 走 pauseOrResume 继续）。已知局限见汇报：引擎应在事件里带上 paused。
+ * 引擎 autoScroll 事件 → 界面状态。running=滚动中；paused=已开启但暂停（点击正文可继续）；两者都为 false = 真正停止
+ * （横拖停止、到书末）。界面自己停止时已先清掉状态，引擎随后回报的「停止」不会再提示。
  */
-export function onEngineAutoScroll(running: boolean, speed?: number): void {
+export function onEngineAutoScroll(e: { running: boolean; paused?: boolean; speed?: number }): void {
   const ui = useReaderUi.getState();
-  if (running) {
+  if (e.running) {
     ui.setAuto({ running: true, paused: false });
-    if (speed !== undefined && lastEngineSpeed !== null && speed !== lastEngineSpeed) toast(t('scroll_speed', { n: speedPct(speed) }), 800);
-  } else if (ui.autoRunning) {
-    ui.setAuto({ running: false, paused: true });
-    toast(t('pause'));
+    if (e.speed !== undefined && lastEngineSpeed !== null && e.speed !== lastEngineSpeed) toast(t('scroll_speed', { n: speedPct(e.speed) }), 800);
+  } else if (e.paused) {
+    if (!ui.autoPaused) {
+      ui.setAuto({ running: false, paused: true });
+      toast(t('pause'));
+    }
+  } else if (ui.autoRunning || ui.autoPaused) {
+    ui.setAuto({ running: false, paused: false });
+    if (!ui.loc?.atEnd) toast(t('scroll_cancel')); // 到书末由 endOfBook 事件提示
   }
-  if (speed !== undefined) lastEngineSpeed = speed;
+  if (e.speed !== undefined) lastEngineSpeed = e.speed;
 }
 
 /** 开始自动滚屏（点按钮/动作 18/导航菜单）：首次询问模式与速度 */

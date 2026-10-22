@@ -5,7 +5,7 @@ import { Emitter } from '@/core/emitter';
 import type { ReaderEvents, ReaderLocation } from '@/core/reader';
 import type { ReaderSession } from '@/core/reader-session';
 import { getPosition, savePosition } from '@/storage/db';
-import { usePositionSaving } from './session-persist';
+import { advancedByTurning, usePositionSaving } from './session-persist';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -118,5 +118,17 @@ describe('进度保存（usePositionSaving）', () => {
     await act(async () => void (await vi.advanceTimersByTimeAsync(900)));
     await flush();
     expect((await getPosition('book-e'))?.locator).toEqual({ section: 6, offset: 1 });
+  });
+});
+
+describe('翻页数统计（advancedByTurning，供 addReadingTime 的 pages）', () => {
+  it('同章页码前进、进到相邻章算翻页；拖进度条/目录跳转的大跨度不算', () => {
+    const at = (section: number, page: number, offset = page * 100) => loc(section, offset, 0.1, { page });
+    expect(advancedByTurning(at(1, 1), at(1, 2))).toBe(true);
+    expect(advancedByTurning(at(1, 5), at(2, 1))).toBe(true);
+    expect(advancedByTurning(at(1, 1), at(2, 1))).toBe(true);
+    expect(advancedByTurning(at(1, 1), at(2, 1, 0))).toBe(true);
+    expect(advancedByTurning(at(1, 1), at(9, 1))).toBe(false);
+    expect(advancedByTurning(at(1, 3), at(1, 3, 300))).toBe(false); // 位置没动
   });
 });

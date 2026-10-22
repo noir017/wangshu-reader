@@ -15,7 +15,7 @@ import { importFile } from '../import';
 import { runWithProgress } from '../ImportDialogs';
 import { openBook } from '../open';
 import { openBookInfo } from '../BookInfo';
-import { formatDate, formatSize, triggerDownload } from '../format';
+import { explainServerError, formatDate, formatSize, triggerDownload } from '../format';
 import { openCloudImport } from './CloudImport';
 import { addFavFolder, openFavFolders, removeFavFolder } from './FavFolders';
 import { breadcrumbs, fileExt, isBrowsableArchive, isImageName, joinPath, sortEntries, splitPath, upFrom, type FileSort } from './files-model';
@@ -60,7 +60,7 @@ export function FilesPage({ route }: { route: Route }) {
       const r = await listDir(path, st.showHidden);
       setEntries(r.entries);
     } catch (e) {
-      setErr((e as Error).message);
+      setErr(explainServerError((e as Error).message, t('serverNeedToken')));
       setEntries([]);
     } finally {
       setLoading(false);
@@ -99,7 +99,10 @@ export function FilesPage({ route }: { route: Route }) {
       <>
         <TopBar title={t('filesTitle')} />
         <div className={s.content} style={{ opacity: 0.6, filter: 'grayscale(1)' }}>
-          <Empty icon={<Folder size={48} />} text={avail.reason === 'no-library' ? t('filesNoServerFeature') + '\n' + t('filesNeedServer') : t('filesNeedServer')} />
+          <Empty
+            icon={<Folder size={48} />}
+            text={<span style={{ whiteSpace: 'pre-line', wordBreak: 'break-word' }}>{avail.reason === 'no-library' ? t('filesNoServerFeature') + '\n' + t('filesNeedServer') : t('filesNeedServer') + (avail.message ? `\n${avail.message}` : '')}</span>}
+          />
         </div>
       </>
     );
@@ -308,7 +311,7 @@ export function FilesPage({ route }: { route: Route }) {
         {loading && !entries ? (
           <Empty icon={<Spinner size={28} />} text={t('loading')} />
         ) : err ? (
-          <Empty text={err} />
+          <Empty text={<span style={{ whiteSpace: 'pre-line', wordBreak: 'break-word' }}>{err}</span>} />
         ) : shown.length === 0 ? (
           <Empty icon={<Folder size={44} />} text={t('filesEmpty')} />
         ) : st.useGrid ? (

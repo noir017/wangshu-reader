@@ -27,6 +27,14 @@ export interface SearchSpec {
   suggest?: (q: string) => SuggestItem[];
 }
 
+/** 本页内容区（顶栏之后第一个可滚动的 .content）：不在顶部就滚到顶，已在顶部就滚到底 */
+function toggleScrollEnd(from: HTMLElement): void {
+  const root = from.closest(`.${s.topbar}`)?.parentElement;
+  const el = root?.querySelector<HTMLElement>(`.${s.content}`);
+  if (!el) return;
+  el.scrollTo({ top: el.scrollTop > 8 ? 0 : el.scrollHeight, behavior: 'smooth' });
+}
+
 export function TopBar(props: {
   title: ReactNode;
   subtitle?: ReactNode;
@@ -40,6 +48,8 @@ export function TopBar(props: {
 }) {
   const shell = useShell();
   const [open, setOpen] = useState(false);
+  // 联想下拉只在输入框有焦点时显示：回车提交/点联想后 blur，否则下拉会一直盖在列表上
+  const [focused, setFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const sp = props.search;
   const history = useSearchHistory(sp?.scope ?? '_');
@@ -67,7 +77,7 @@ export function TopBar(props: {
   return (
     <div className={s.topbar}>
       {nav === 'menu' ? (
-        <button type="button" className={`${uiStyles.iconBtn} ${s.menuBtn}`} aria-label={t('options')} onClick={props.onNav ?? shell.openDrawer}>
+        <button type="button" className={`${uiStyles.iconBtn} ${s.menuBtn}`} aria-label={t('menuLabel')} onClick={props.onNav ?? shell.openDrawer}>
           <Menu size={22} />
         </button>
       ) : (
@@ -83,6 +93,8 @@ export function TopBar(props: {
             value={sp.value}
             placeholder={sp.placeholder ?? t('searchHint')}
             onChange={(e) => sp.onChange(e.target.value)}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 void saveSearchKey(sp.scope, sp.value);
@@ -101,7 +113,8 @@ export function TopBar(props: {
           {props.subtitle && <small>{props.subtitle}</small>}
         </button>
       ) : (
-        <div className={s.topTitle}>
+        // 点标题 = 当前页「滚到顶 / 滚到底」切换（LIB-001，原 AM:13637）
+        <div className={s.topTitle} onClick={(e) => toggleScrollEnd(e.currentTarget)}>
           {props.title}
           {props.subtitle && <small>{props.subtitle}</small>}
         </div>
@@ -112,7 +125,7 @@ export function TopBar(props: {
         </IconButton>
       )}
       {props.actions}
-      {open && sp && <Suggest sp={sp} history={history} onDone={() => inputRef.current?.blur()} />}
+      {open && sp && focused && <Suggest sp={sp} history={history} onDone={() => inputRef.current?.blur()} />}
     </div>
   );
 }
