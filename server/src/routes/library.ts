@@ -132,7 +132,7 @@ export const route: RouteModule = {
         ...SAFE_HEADERS,
       };
       if (c.req.method === 'HEAD') return new Response(null, { status: 200, headers });
-      const stream = await extractEntryStream(r.file.real, entry, listing.codepage);
+      const stream = await extractEntryStream(r.file.real, entry);
       return new Response(Readable.toWeb(stream) as ReadableStream, { status: 200, headers });
     });
 
@@ -194,7 +194,7 @@ export const route: RouteModule = {
         const ast = await stat(r.file.real);
         key = `${r.file.real}\0${ast.mtimeMs}\0${ast.size}\0${entry.path}\0${size}`;
         produce = async () => {
-          const stream = await extractEntryStream(r.file.real, entry, listing.codepage);
+          const stream = await extractEntryStream(r.file.real, entry);
           const chunks: Buffer[] = [];
           let n = 0;
           for await (const ch of stream) {

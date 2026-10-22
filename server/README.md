@@ -51,7 +51,7 @@ MR_HOST=0.0.0.0 MR_TOKEN=换成长随机串 MR_LIBRARY_DIR=/books npm start
 | `MR_MAX_CONVERT_MB` | `1024` | `/api/convert`、`/api/archive/*` 接收的原文件上限 |
 | `MR_MAX_UPLOAD_MB` | `4096` | 书库上传、`/dav` PUT 的单文件上限，`0` 不限 |
 | `MR_MAX_EXTRACT_MB` | `4096` | 压缩包解开后总大小上限（防压缩炸弹） |
-| `MR_ARCHIVE_CODEPAGES` | `936` | 无 UTF-8 标志的老 zip 文件名的重试代码页（逗号分隔，936 = GBK；繁体可加 `950`） |
+| `MR_ARCHIVE_CODEPAGES` | `936` | 无 UTF-8 标志的老 zip 文件名依次试的代码页（逗号分隔，936 = GBK；繁体可加 `950`）。这类 zip 由服务端自己读中央目录、解名字和内容（只支持 stored/deflate），不依赖 7z 的 `-mcp`（只有 Debian 打了补丁的 7zip 认） |
 | `MR_TTS` | `auto` | `auto`/`edge`：Edge 在线朗读，本机有 `espeak-ng` 作后备；`off`：关闭在线朗读 |
 | `MR_TTS_CACHE_MB` | `256` | 合成音频的磁盘缓存上限，`0` 关闭缓存 |
 | `MR_TTS_DEFAULT_VOICE` | 按文字语言选 | 没指定声音时的默认声音（如 `zh-CN-XiaoxiaoNeural`） |

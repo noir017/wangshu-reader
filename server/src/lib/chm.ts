@@ -359,7 +359,7 @@ export async function convertChmToEpub(
 ): Promise<ChmConvertResult> {
   const listing = await listArchive(chmFile);
   assertExtractable(listing, opts.maxExtractBytes);
-  await extractAll(chmFile, workDir, listing.codepage);
+  await extractAll(chmFile, workDir, listing);
   const all = await walkRegularFiles(workDir);
   const byRel = new Map<string, ExtractedFile>();
   for (const f of all) {

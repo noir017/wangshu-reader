@@ -48,7 +48,7 @@ export async function archiveToCbz(inFile: string, outFile: string, workDir: str
   assertExtractable(listing, maxExtractBytes);
   const xdir = path.join(workDir, 'x');
   await mkdir(xdir, { recursive: true });
-  await extractAll(inFile, xdir, listing.codepage);
+  await extractAll(inFile, xdir, listing);
   const files = (await walkRegularFiles(xdir))
     .filter((f) => {
       const segs = f.rel.split('/');
