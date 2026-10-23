@@ -1,6 +1,6 @@
 // 书架侧/服务端验收（accept.library.*）的公共辅助：构建、起真实服务端、生成样本、开页面。
-// 用法（容器里）：npx playwright test tests/e2e/accept.library. --workers=1
-// 约定：端口 5411–5419 归这组用例；构建产物与截图都在 out/accept-library/（tools/sync 不会清掉；test-results 会被别人的运行清空）。
+// 用法：npx playwright test tests/e2e/accept.library. --workers=1（自己构建、自己起服务端，不用先起 vite）
+// 约定：端口 5411–5419 归这组用例；构建产物与截图都在 out/accept-library/（test-results 每次运行会被清空）。
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
 import net from 'node:net';

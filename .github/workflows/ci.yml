@@ -26,7 +26,7 @@ jobs:
 
       - run: npm ci
       - run: npm run typecheck
-      # 依赖 samples/ 本地样书的用例会自动跳过；端到端测试（playwright）不在 CI 里跑
+      # 依赖 samples/ 样书的用例在这里自动跳过，由下面的 e2e job 跑
       - run: npx vitest run
       - run: npm run build:all
 
@@ -81,3 +81,62 @@ jobs:
           path: wangshu-reader-android-debug.apk
           archive: false
           if-no-files-found: error
+
+  # 端到端测试（playwright）+ 要样书的单测。样书不进 git，由 tests/samples/ 的脚本现场下载、生成，按脚本内容缓存
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      # 服务端转换要 7z / ddjvu / espeak-ng，书架用例用 c44 现场生成 DJVU；中文排版要 CJK 字体
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends 7zip djvulibre-bin espeak-ng fonts-noto-cjk
+
+      - run: npm ci
+
+      - uses: actions/cache@v6
+        id: samples
+        with:
+          path: samples
+          key: samples-${{ hashFiles('tests/samples/**') }}
+
+      - if: steps.samples.outputs.cache-hit != 'true'
+        run: |
+          tests/samples/fetch.sh
+          python3 tests/samples/gen.py
+
+      - id: setup
+        run: npx playwright install --with-deps chromium
+
+      # 三组测试互不依赖：前一组失败也接着跑后面的，一次看全
+      - if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: npx vitest run src/formats/real-books.test.ts server/src/lib/chm.test.ts server/src/routes/convert.test.ts
+
+      # 书架 / 服务端：自己构建、自己起服务端，用固定端口，只能单 worker。两组各用一个 --output，否则后一组会清掉前一组的失败截图
+      - if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: npx playwright test tests/e2e/accept.library. --workers=1 --output test-results/library
+
+      # 阅读器 / 引擎 / 功能页：引擎和功能的调试页只有 vite dev 才有
+      - if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: |
+          npx vite --host 127.0.0.1 --port 4173 --strictPort > vite.log 2>&1 &
+          for i in $(seq 60); do curl -sf -o /dev/null http://127.0.0.1:4173/ && break; sleep 1; done
+          npx playwright test tests/e2e/engine. tests/e2e/features. tests/e2e/accept.reader. --output test-results/reader
+
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-results
+          path: |
+            test-results/
+            out/**/*.png
+            vite.log
+          retention-days: 7
+          if-no-files-found: ignore

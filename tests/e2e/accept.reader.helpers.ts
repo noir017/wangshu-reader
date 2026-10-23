@@ -1,10 +1,11 @@
 // 阅读侧验收（阶段 4）的公共辅助：真页面、真引擎、真 formats、真样书。
-// 用法（容器内）：先起 vite（5401–5409，--strictPort），再
-//   E2E_BASE_URL=http://127.0.0.1:<端口> npx playwright test tests/e2e/accept.reader.*.spec.ts --output out/reader-accept/results
-// 截图一律放 out/reader-accept/（sync 不会删，也不会被别人的运行清空）。
+// 用法：先起 vite dev（见 engine.basic.spec.ts 开头），再
+//   npx playwright test tests/e2e/accept.reader.*.spec.ts
+// 截图一律放 out/reader-accept/（test-results 每次运行会被清空）。
+import path from 'node:path';
 import { expect, type Page } from '@playwright/test';
 
-export const SAMPLES = process.env.MR_SAMPLES_DIR ?? '/work/wangshu-reader/samples/books';
+export const SAMPLES = process.env.MR_SAMPLES_DIR ?? path.resolve('samples/books');
 export const SHOTS = 'out/reader-accept';
 export const shot = (page: Page, name: string) => page.screenshot({ path: `${SHOTS}/${name}.png` });
 
@@ -70,14 +71,14 @@ export async function openFromShelf(page: Page, title?: string | RegExp): Promis
   await waitReaderReady(page);
 }
 
-/** 阅读页就绪：正文容器出现内容。文本类是 section iframe，固定版式是 canvas */
+/** 阅读页就绪：正文容器出现内容。文本类是 section iframe（只有一两段的短章节不到 200px 高，有文字也算），固定版式是 canvas */
 export async function waitReaderReady(page: Page): Promise<void> {
   await expect
     .poll(
       () =>
         page.evaluate(() => {
           const iframes = [...document.querySelectorAll('iframe[title^="section-"]')] as HTMLIFrameElement[];
-          if (iframes.some((f) => f.getBoundingClientRect().height > 200)) return 'text';
+          if (iframes.some((f) => f.getBoundingClientRect().height > 200 || !!f.contentDocument?.body?.textContent?.trim())) return 'text';
           if (document.querySelector('canvas')) return 'fixed';
           return '';
         }),

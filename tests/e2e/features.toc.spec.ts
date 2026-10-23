@@ -64,6 +64,8 @@ async function addHighlight(page: Page, section: number, needle: string, tpl = '
   await f(page, `f.controller.goTo({ range: { section: ${section}, start: ${i}, end: ${i + needle.length} } })`);
   await select(page, section, i, i + needle.length);
   await page.getByTestId(tpl).click();
+  // 标注写完库才清选区（会连带清掉这期间新选的字）：等这一条做完再继续
+  await expect(page.getByTestId('selection-toolbar')).toHaveCount(0);
 }
 
 test('书签/标注页：筛选、关键字搜索、点击跳转、⋮ 菜单删除', async ({ page }) => {
