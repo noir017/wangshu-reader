@@ -559,8 +559,10 @@ test('封面搜索限流（B 节第 4 条）：Google Books 429 时给出友好�
   await go(page, '#/shelf');
   await page.locator('[data-id]').first().locator('button[aria-label="操作"]').click({ force: true });
   await page.getByRole('menuitem', { name: '下载书籍封面' }).click();
+  // 对话框一打开就用默认来源（Open Library）搜一次；等它搜完再切来源，否则两次搜索共用的「搜索中」状态会被先结束的那次清掉
+  await expect(page.locator('[class*=cell]').filter({ hasText: 'Open Library' }).first()).toBeVisible({ timeout: 15_000 });
   await page.getByRole('dialog').last().getByRole('radio', { name: 'Google Books' }).click();
-  // 切换来源后旧结果还会在屏上停一下：等 Google 的请求发出、这一轮搜完（429 处理完才记下冷却期）
+  // 切换来源后旧结果还会在屏上停一下：等 Google 的请求发出、这一轮搜完（含 429 后的一次重试；429 处理完才记下冷却期）
   await expect.poll(() => gb).toBeGreaterThan(0);
   await expect(page.getByText('正在搜索...')).toHaveCount(0);
   await expect(page.locator('[class*=cell]').filter({ hasText: 'Open Library' }).first()).toBeVisible({ timeout: 15_000 });
