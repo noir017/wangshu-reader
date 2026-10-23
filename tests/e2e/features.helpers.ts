@@ -1,8 +1,8 @@
 // features 端到端的公共辅助：打开开发页（src/features/dev）、取引擎/会话、驱动选择。
-// 先在容器里起 vite（端口自选），再：E2E_BASE_URL=http://127.0.0.1:<端口> npx playwright test tests/e2e/features.*.spec.ts
+// 先起 vite dev（见 engine.basic.spec.ts 开头），再：npx playwright test tests/e2e/features.*.spec.ts
 import { expect, type Page } from '@playwright/test';
 
-/** 截图放 out/features-shots（容器里生成物目录，sync 不会删；test-results 是大家共用的，会被别人的运行清空） */
+/** 截图放 out/features-shots（test-results 每次运行会被清空） */
 export const shot = (page: Page, name: string) => page.screenshot({ path: `out/features-shots/${name}.png` });
 
 export const DEV_URL = '/src/features/dev/index.html';

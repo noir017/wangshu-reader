@@ -26,6 +26,8 @@ export default defineConfig(({ mode }) => {
       ...(single ? { assetsInlineLimit: () => true, cssCodeSplit: false } : {}),
     },
     worker: { format: 'es' },
+    // 依赖预构建只扫源码里的页面：默认会爬所有 html，e2e 在 out/ 里留下的构建产物也会被扫进去
+    optimizeDeps: { entries: ['index.html', 'src/**/*.html'] },
     server: {
       proxy: { '/api': 'http://127.0.0.1:8090' },
     },
