@@ -99,15 +99,15 @@ test('自动视图：竖屏逐页、横屏连续、长条漫画连续', async ({
 test('缩放：双击缩放循环、放大后补高清', async ({ page }) => {
   await open(page, 'view=1');
   const z = async () => (await st(page)).z;
-  await page.mouse.dblclick(380, 450);
-  await page.waitForTimeout(100);
-  expect(await z()).toBeCloseTo(1.75, 2);
-  await page.mouse.dblclick(380, 450);
-  await page.waitForTimeout(100);
-  expect(await z()).toBeCloseTo(3, 2);
-  await page.mouse.dblclick(380, 450);
-  await page.waitForTimeout(100);
-  expect(await z()).toBeCloseTo(1, 2);
+  // 每次双击后轮询到位，再隔开超过双击窗口（260ms），免得相邻两次双击互相干扰
+  const dbl = async (expected: number) => {
+    await page.mouse.dblclick(380, 450);
+    await expect.poll(z).toBeCloseTo(expected, 2);
+    await page.waitForTimeout(300);
+  };
+  await dbl(1.75);
+  await dbl(3);
+  await dbl(1);
   // 放大后高清重绘：位图密度提高
   await page.mouse.dblclick(380, 450);
   await page.waitForTimeout(700);

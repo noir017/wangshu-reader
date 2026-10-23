@@ -7,7 +7,8 @@ import path from 'node:path';
 import JSZip from 'jszip';
 import { makeRar, makePng, makeCbz, SAMPLES, srvFetch, startServer, type Srv } from './accept.library.helpers';
 
-test.describe.configure({ mode: 'serial' });
+// /api/proxy 用例连真实 Gutenberg，偶尔超时（ETIMEDOUT）：失败重试，串行模式下整组重跑
+test.describe.configure({ mode: 'serial', retries: 2 });
 
 let srv: Srv;
 const net: string[] = [];

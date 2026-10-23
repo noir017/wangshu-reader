@@ -20,7 +20,7 @@ test.beforeAll(async () => {
   other = await startServer({ port: 5416, serve: 'single', noLibrary: true });
   locked = await startServer({ port: 5417, token: TOKEN, serve: 'std' });
   browser = await chromium.launch({
-    executablePath: process.env.CHROME_BIN ?? '/usr/bin/chromium',
+    executablePath: process.env.CHROME_BIN || undefined,
     args: ['--host-resolver-rules=MAP evil.test 127.0.0.1, MAP myhost.test 127.0.0.1', '--no-sandbox'],
   });
 });

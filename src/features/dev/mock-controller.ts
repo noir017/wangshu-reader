@@ -137,6 +137,8 @@ export class MockController implements ReaderController {
     iframe.setAttribute('sandbox', 'allow-same-origin');
     Object.assign(iframe.style, { position: 'absolute', left: '0', top: '0', width: `${this.W}px`, height: `${this.H}px`, border: '0', background: '#fbf7ee' });
     const html = `<!doctype html><html lang="zh"><head><meta charset="utf-8"><style>${BODY_CSS}</style></head><body>${content.bodyHtml}</body></html>`;
+    // 旧 iframe 马上要被换下：它还没跑的选区处理作废
+    clearTimeout(this.selTimer);
     await new Promise<void>((resolve) => {
       iframe.addEventListener('load', () => resolve(), { once: true });
       iframe.srcdoc = html;
@@ -475,8 +477,9 @@ export class MockController implements ReaderController {
     clearTimeout(this.selTimer);
     this.selTimer = setTimeout(() => {
       const doc = this.doc;
-      if (!doc) return;
-      const sel = doc.defaultView!.getSelection();
+      // 换章时旧 iframe 已经移出页面（defaultView 为 null），新章还没加载完
+      if (!doc?.defaultView) return;
+      const sel = doc.defaultView.getSelection();
       if (!sel || sel.isCollapsed || !sel.rangeCount) {
         if (this.cur) {
           this.cur = null;

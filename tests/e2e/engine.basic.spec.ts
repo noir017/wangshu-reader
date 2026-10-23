@@ -1,5 +1,5 @@
-// 阅读引擎端到端：可重排书的加载、整行翻页、锚点保持。需先在容器里起 vite dev（见 src/reader/engine/dev/README 注释）：
-//   tools/rx 'npx vite --host 127.0.0.1 --port 5171 --strictPort'   然后  E2E_BASE_URL=http://127.0.0.1:5171
+// 阅读引擎端到端：可重排书的加载、整行翻页、锚点保持。需先起 vite dev（见 src/reader/engine/dev/README 注释）：
+//   npx vite --host 127.0.0.1 --port 4173 --strictPort   然后  npx playwright test（baseURL 默认就是 4173）
 import { expect, test, type Page } from '@playwright/test';
 
 const URL = '/src/reader/engine/dev/harness.html';

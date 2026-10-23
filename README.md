@@ -104,7 +104,7 @@ npm test              # 单元测试（vitest）
 npm run e2e           # 端到端测试（playwright）
 ```
 
-端到端测试要用本地样书（`samples/`，不在仓库里）和系统里的 Chromium，阅读器那部分还得先起 vite、用 `E2E_BASE_URL` 指过去，所以 CI 里不跑。CI 跑的是类型检查、单元测试和三种构建；单元测试里要样书的用例，没有样书时自动跳过。
+端到端测试和部分单元测试要用样书（`samples/`，不在仓库里）：先 `tests/samples/fetch.sh` 下载、`python3 tests/samples/gen.py` 生成；阅读器那部分还得先起 vite dev（`npx vite --host 127.0.0.1 --port 4173`）。完整步骤见 CI 的 e2e job —— CI 跑类型检查、单元测试、三种构建、Android 包和端到端测试。
 
 技术栈：React 19 + TypeScript + Vite + zustand，服务端用 Hono。模块划分见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
 
