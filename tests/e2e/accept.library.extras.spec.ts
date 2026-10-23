@@ -1,6 +1,6 @@
 // 书架侧补充验收：网络书库的增删改与登录（本地假 OPDS）、文件页的拷贝/移动/下载/缩略图/看图/快速访问/云端导入、
 // 导入的拖放/ZIP/目录/服务端转换格式、最近阅读同步、Readwise、手动拖拽排序、标注导出导入、失效书籍补文件、封面搜索限流、冷启动回到上次标签页。
-import { chromium, expect, test, type Page } from '@playwright/test';
+import { chromium, expect, test, type Page, type Route } from '@playwright/test';
 import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
@@ -548,12 +548,19 @@ test('封面搜索限流（B 节第 4 条）：Google Books 429 时给出友好�
   const { ctx, page } = await openApp(browser, shape);
   await importViaDialog(page, [{ name: '封面书.epub', mimeType: 'application/epub+zip', buffer: await makeEpub('Dune', 'Frank Herbert') }]);
   await page.keyboard.press('Escape');
-  let gb = 0;
-  await page.route('https://www.googleapis.com/**', (route) => {
-    gb++;
+  // Google 两条路都拦成 429：直连，以及直连失败时 app 改走的服务端代理（不拦的话服务端会去请求真的 Google）
+  const gbHits: string[] = [];
+  const googleLimited = (via: string) => (route: Route) => {
+    gbHits.push(via);
     return route.fulfill({ status: 429, headers: { 'access-control-allow-origin': '*', 'retry-after': '60' }, body: '{"error":"rate limited"}' });
+  };
+  await page.route('https://www.googleapis.com/**', googleLimited('direct'));
+  await page.route((u) => u.pathname === '/api/proxy' && (u.searchParams.get('url') ?? '').startsWith('https://www.googleapis.com/'), googleLimited('proxy'));
+  let ol = 0;
+  await page.route('https://openlibrary.org/**', (route) => {
+    ol++;
+    return route.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*' }, contentType: 'application/json', body: JSON.stringify({ docs: [{ key: '/works/OL1', title: 'Dune', cover_i: 1234 }] }) });
   });
-  await page.route('https://openlibrary.org/**', (route) => route.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*' }, contentType: 'application/json', body: JSON.stringify({ docs: [{ key: '/works/OL1', title: 'Dune', cover_i: 1234 }] }) }));
   await page.route('https://covers.openlibrary.org/**', (route) => route.fulfill({ status: 200, contentType: 'image/png', headers: { 'access-control-allow-origin': '*' }, body: makePng(60, 90, 4) }));
   // 首选 Google Books：429 → 自动回退 Open Library
   await go(page, '#/shelf');
@@ -561,17 +568,21 @@ test('封面搜索限流（B 节第 4 条）：Google Books 429 时给出友好�
   await page.getByRole('menuitem', { name: '下载书籍封面' }).click();
   // 对话框一打开就用默认来源（Open Library）搜一次；等它搜完再切来源，否则两次搜索共用的「搜索中」状态会被先结束的那次清掉
   await expect(page.locator('[class*=cell]').filter({ hasText: 'Open Library' }).first()).toBeVisible({ timeout: 15_000 });
+  const olBefore = ol;
   await page.getByRole('dialog').last().getByRole('radio', { name: 'Google Books' }).click();
-  // 切换来源后旧结果还会在屏上停一下：等 Google 的请求发出、这一轮搜完（含 429 后的一次重试；429 处理完才记下冷却期）
-  await expect.poll(() => gb).toBeGreaterThan(0);
-  await expect(page.getByText('正在搜索...')).toHaveCount(0);
+  // 回退到 Open Library 的请求发出时，Google 那一步（含 429 后的重试）已经走完、冷却期已记下
+  await expect.poll(() => ol).toBeGreaterThan(olBefore);
   await expect(page.locator('[class*=cell]').filter({ hasText: 'Open Library' }).first()).toBeVisible({ timeout: 15_000 });
-  const callsAfterFirst = gb;
-  // 再搜一次：冷却期内不再请求 Google
+  const afterFirst = [...gbHits];
+  expect(afterFirst.length).toBeGreaterThan(0);
+  // 再搜两次（Open Library、Google Books）：冷却期内不再请求 Google。两次都会请求 Open Library，等它们都发出再数
+  const olBefore2 = ol;
   await page.getByRole('dialog').last().getByRole('radio', { name: 'Open Library' }).click();
+  await expect.poll(() => ol).toBeGreaterThan(olBefore2);
   await page.getByRole('dialog').last().getByRole('radio', { name: 'Google Books' }).click();
+  await expect.poll(() => ol).toBeGreaterThan(olBefore2 + 1);
   await expect(page.locator('[class*=cell]').filter({ hasText: 'Open Library' }).first()).toBeVisible({ timeout: 15_000 });
-  expect(gb).toBe(callsAfterFirst);
+  expect(gbHits, '冷却期内不该再请求 Google（direct = 直连，proxy = 走服务端代理）').toEqual(afterFirst);
   // 两个来源都限流时：友好提示
   await page.unroute('https://openlibrary.org/**');
   await page.route('https://openlibrary.org/**', (route) => route.fulfill({ status: 429, headers: { 'access-control-allow-origin': '*', 'retry-after': '60' }, body: '{}' }));
