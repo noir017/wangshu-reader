@@ -152,6 +152,8 @@ test('网络书库（本地假 OPDS）：添加 → 浏览/分页 → 搜索 →
   await page.locator('[class*=groupRow]').filter({ hasText: 'Feedbooks' }).getByRole('button', { name: '操作' }).click();
   await page.getByRole('menuitem', { name: '删除', exact: true }).click();
   await page.getByRole('dialog').last().getByRole('button', { name: '确定' }).click();
+  // 列表在墓碑和目录都写完后才刷新：等它消失再重载，否则重载可能打断写入
+  await expect(page.getByText('Feedbooks', { exact: true })).toHaveCount(0);
   await page.reload();
   await expect(page.getByText('Project Gutenberg')).toBeVisible();
   await expect(page.getByText('Feedbooks', { exact: true })).toHaveCount(0);

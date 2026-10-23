@@ -71,14 +71,14 @@ export async function openFromShelf(page: Page, title?: string | RegExp): Promis
   await waitReaderReady(page);
 }
 
-/** 阅读页就绪：正文容器出现内容。文本类是 section iframe，固定版式是 canvas */
+/** 阅读页就绪：正文容器出现内容。文本类是 section iframe（只有一两段的短章节不到 200px 高，有文字也算），固定版式是 canvas */
 export async function waitReaderReady(page: Page): Promise<void> {
   await expect
     .poll(
       () =>
         page.evaluate(() => {
           const iframes = [...document.querySelectorAll('iframe[title^="section-"]')] as HTMLIFrameElement[];
-          if (iframes.some((f) => f.getBoundingClientRect().height > 200)) return 'text';
+          if (iframes.some((f) => f.getBoundingClientRect().height > 200 || !!f.contentDocument?.body?.textContent?.trim())) return 'text';
           if (document.querySelector('canvas')) return 'fixed';
           return '';
         }),

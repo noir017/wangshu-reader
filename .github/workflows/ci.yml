@@ -119,16 +119,16 @@ jobs:
       - if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: npx vitest run src/formats/real-books.test.ts server/src/lib/chm.test.ts server/src/routes/convert.test.ts
 
-      # 书架 / 服务端：自己构建、自己起服务端，用固定端口，只能单 worker
+      # 书架 / 服务端：自己构建、自己起服务端，用固定端口，只能单 worker。两组各用一个 --output，否则后一组会清掉前一组的失败截图
       - if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        run: npx playwright test tests/e2e/accept.library. --workers=1
+        run: npx playwright test tests/e2e/accept.library. --workers=1 --output test-results/library
 
       # 阅读器 / 引擎 / 功能页：引擎和功能的调试页只有 vite dev 才有
       - if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: |
           npx vite --host 127.0.0.1 --port 4173 --strictPort > vite.log 2>&1 &
           for i in $(seq 60); do curl -sf -o /dev/null http://127.0.0.1:4173/ && break; sleep 1; done
-          npx playwright test tests/e2e/engine. tests/e2e/features. tests/e2e/accept.reader.
+          npx playwright test tests/e2e/engine. tests/e2e/features. tests/e2e/accept.reader. --output test-results/reader
 
       - if: failure()
         uses: actions/upload-artifact@v7

@@ -543,6 +543,8 @@ for (const vp of VIEWPORTS) {
       await dlg.locator('input[type=password]').nth(1).fill('1234');
       await dlg.getByRole('button', { name: '确定' }).click();
       await expect(page.getByText('启动密码设定成功')).toBeVisible();
+      // 设置写 localStorage 有 200ms 去抖，同一上下文新开的标签页要等它落盘
+      await expect.poll(() => page.evaluate(() => localStorage.getItem('mr.settings.v1') ?? '')).toContain('"lockEnabled":true');
       // 新开标签（新会话）→ 锁屏
       const bookId = (await idbAll(page, 'books'))[0].id as string;
       const p2 = await page.context().newPage();
