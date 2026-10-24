@@ -33,11 +33,11 @@
 
 不想自己构建，可以直接拿构建好的文件：
 
-- **Release**：[最新版](https://github.com/noir017/wangshu-reader/releases/latest)，每个 `v*` tag 自动发布，附四个文件：
-  - `wangshu-reader-single.html`：单文件版
-  - `wangshu-reader-web.zip`：静态网站
-  - `wangshu-reader-server.zip`：服务端部署包（含前端）
-  - `wangshu-reader-android.apk`：Android app（arm64，自带服务端）
+- **Release**：[最新版](https://github.com/noir017/wangshu-reader/releases/latest)，每个 `v*` tag 自动发布，附四个文件（文件名末尾是版本号，如 `-v0.1.2`）：
+  - `wangshu-reader-single-<版本>.html`：单文件版
+  - `wangshu-reader-web-<版本>.zip`：静态网站
+  - `wangshu-reader-server-<版本>.zip`：服务端部署包（含前端）
+  - `wangshu-reader-android-<版本>.apk`：Android app（arm64，自带服务端）
 - **CI 产物**：main 上每次提交都会构建，在 [Actions](https://github.com/noir017/wangshu-reader/actions/workflows/ci.yml) 里点开某次运行，底部 Artifacts 里有前三样和一个 debug 签名的 APK（下载要登录 GitHub，默认保留 90 天）。debug 包和 Release 的包签名不同，不能互相覆盖安装。
 
 ## 四种用法
@@ -49,7 +49,7 @@ npm install
 npm run build:single      # 产物：dist-single/index.html
 ```
 
-把 `dist-single/index.html`（或 Release 里的 `wangshu-reader-single.html`）拷到任何地方双击打开即可，书和设置都存在浏览器本地（IndexedDB）。需要服务端功能时，在「设置」里填服务端地址。
+把 `dist-single/index.html`（或 Release 里的 `wangshu-reader-single-<版本>.html`）拷到任何地方双击打开即可，书和设置都存在浏览器本地（IndexedDB）。需要服务端功能时，在「设置」里填服务端地址。
 
 ### 2. 静态网站
 
@@ -57,14 +57,14 @@ npm run build:single      # 产物：dist-single/index.html
 npm run build             # 产物：dist/
 ```
 
-把 `dist/`（或解压后的 `wangshu-reader-web.zip`）放到任意静态服务器上。
+把 `dist/`（或解压后的 `wangshu-reader-web-<版本>.zip`）放到任意静态服务器上。
 
 ### 3. 带服务端
 
 用 Release 里的部署包：
 
 ```bash
-unzip wangshu-reader-server.zip && cd wangshu-reader-server
+unzip wangshu-reader-server-v*.zip && cd wangshu-reader-server
 npm ci --omit=dev
 MR_HOST=0.0.0.0 MR_TOKEN=换成一个长随机串 MR_LIBRARY_DIR=/path/to/books npm start
 ```
