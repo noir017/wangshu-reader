@@ -1,6 +1,6 @@
 {
   "name": "wangshu-reader",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "license": "AGPL-3.0-only",
   "description": "望舒（Wangshu Reader）：浏览器端电子书阅读器 + HTTP 服务端，界面与功能参考 Moon+ Reader（静读天下）",
