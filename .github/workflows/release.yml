@@ -49,15 +49,16 @@ jobs:
           android/scripts/build.sh release
           rm -f "$WANGSHU_KEYSTORE"
 
-      # 附件名固定不带版本号，README 里可以用 releases/latest/download/<文件名> 直链
+      # 附件名末尾带版本号（tag 名，如 wangshu-reader-android-v0.1.2.apk），下载下来能分清是哪一版；服务端包解压出的目录名不带版本
       - name: Package
         run: |
+          V="$GITHUB_REF_NAME"
           mkdir -p release pkg/wangshu-reader-server
-          cp dist-single/index.html release/wangshu-reader-single.html
-          (cd dist && zip -qr ../release/wangshu-reader-web.zip .)
+          cp dist-single/index.html "release/wangshu-reader-single-$V.html"
+          (cd dist && zip -qr "../release/wangshu-reader-web-$V.zip" .)
           cp -r dist dist-server package.json package-lock.json pkg/wangshu-reader-server/
-          (cd pkg && zip -qr ../release/wangshu-reader-server.zip wangshu-reader-server)
-          cp android/app/build/outputs/apk/release/app-release.apk release/wangshu-reader-android.apk
+          (cd pkg && zip -qr "../release/wangshu-reader-server-$V.zip" wangshu-reader-server)
+          cp android/app/build/outputs/apk/release/app-release.apk "release/wangshu-reader-android-$V.apk"
           ls -l release
 
       - name: Create release
