@@ -91,9 +91,6 @@ export function createActionHost(): ActionHost {
   const host: ActionHost = {
     pageUp: () => void pagePrev(),
     pageDown: () => void pageNext(),
-    // 引擎没有「滚一行」接口，暂以翻页代替（见汇报）
-    lineUp: () => void pagePrev(),
-    lineDown: () => void pageNext(),
     adjacentFile: (dir) => {
       const s = getSession();
       if (!s) return;
@@ -127,7 +124,6 @@ export function createActionHost(): ActionHost {
     fontSizeBar: () => useReaderUi.getState().setPanel('font'),
     chapter: (dir) => void stepChapter(dir),
     backToShelf: leaveReader,
-    exitReader: leaveReader,
     autoScroll: toggleAutoScroll,
     brightnessPanel: () => useReaderUi.getState().setPanel('brightness'),
     openOptions: (which) => {

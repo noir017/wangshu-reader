@@ -32,8 +32,6 @@ export const shelfSettings = defineSettings('library.shelf', {
   coverWithProgress: false,
   shelfCoverSize: tablet ? 130 : 110,
   recentCoverSize: 90,
-  fileCoverSize: 48,
-  netCoverSize: 48,
   shelfFontSize: tablet ? 17 : 16,
   shelfBoldFont: false,
   /** 缺省封面的配色序号 0..5；-1 = 自动（按书名挑色） */
@@ -57,7 +55,6 @@ export const shelfSettings = defineSettings('library.shelf', {
   /** 自动导入已链接目录里的新书（LIB-024，仅 Chromium） */
   autoImport: false,
   autoImportTime: 0,
-  fileImportWithFav: true,
   // 封面
   coverSearchEngine: 'openlibrary' as 'openlibrary' | 'googlebooks',
   // 启动保护（弱保护：只遮挡界面，数据仍在 IndexedDB）
@@ -84,7 +81,7 @@ export const netSettings = defineSettings('library.net', {
 export type SyncMode = 'builtin' | 'custom';
 
 export const syncSettings = defineSettings('library.sync', {
-  /** 总开关（原 syncType=6）；Dropbox/Google Drive 只做配置占位 */
+  /** 总开关（原 syncType=6） */
   enabled: false,
   mode: 'builtin' as SyncMode,
   /** custom 模式的 WebDAV 地址 */
@@ -96,9 +93,6 @@ export const syncSettings = defineSettings('library.sync', {
   syncRecentList: false,
   /** 书籍根路径，.Moon+ 放在其下 */
   bookPath: '/Apps/Books',
-  /** Dropbox / Google Drive 需要自己的 OAuth 应用（占位） */
-  dropboxAppKey: '',
-  gdriveClientId: '',
 });
 
 export const readwiseSettings = defineSettings('library.readwise', {

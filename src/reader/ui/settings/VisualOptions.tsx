@@ -157,7 +157,6 @@ export function VisualOptions({ close, onSwitch }: { close: () => void; onSwitch
         onSet={(v) => textSettings.set(v ? { textCJK: true, textJustified: true, textHyphenation: false } : { textCJK: false, textDense: false })}
       />
       <SwitchRow slice={textSettings} k="textDense" title={t('text_dense')} subtitle={undefined} onSet={(v) => textSettings.set(v ? { textDense: true, textCJK: true, textJustified: true } : { textDense: false })} />
-      <SwitchRow slice={textSettings} k="verticalAlignment" title={t('vertical_alighment')} />
       <SwitchRow slice={textSettings} k="textJian2Fan" title={t('chinese_jian2fan')} onSet={(v) => textSettings.set(v ? { textJian2Fan: true, textFan2Jian: false } : { textJian2Fan: false })} />
       <SwitchRow slice={textSettings} k="textFan2Jian" title={t('chinese_fan2jian')} onSet={(v) => textSettings.set(v ? { textFan2Jian: true, textJian2Fan: false } : { textFan2Jian: false })} />
 
@@ -206,11 +205,10 @@ export function VisualOptions({ close, onSwitch }: { close: () => void; onSwitch
         ))}
       </div>
       {flip !== FlipAnimation.None && <SliderRow slice={flipSettings} k="flipSpeed" title={t('flip_speed')} min={0} max={50} />}
-      <SwitchRow slice={flipSettings} k="allowScrollHorizontally" title={t('allow_scroll_horizontally')} />
-      <SwitchRow slice={flipSettings} k="disableMove" title={t('disablemove')} />
+      {/* 「允许左右划动翻页」「触碰时禁止上下滑动」只放在其它选项（带横划动画齿轮那份），这里不再重复 */}
       <ResetRow
         label={t('reset')}
-        onClick={() => flipSettings.set({ flipAnimation: flipSettings.defaults.flipAnimation, flipSpeed: flipSettings.defaults.flipSpeed, allowScrollHorizontally: true, disableMove: false })}
+        onClick={() => flipSettings.set({ flipAnimation: flipSettings.defaults.flipAnimation, flipSpeed: flipSettings.defaults.flipSpeed })}
       />
       <NoteText>{t('brightness_note')}</NoteText>
     </Drawer>

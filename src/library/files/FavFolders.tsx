@@ -1,6 +1,6 @@
 // 文件夹快速访问列表（LIB-029）：服务端书库里的目录路径，首页「我的文件」行与文件页使用
 import { Folder, Plus, X } from 'lucide-react';
-import { Button, Sheet, openOverlay, promptDialog, Switch, Row } from '@/ui';
+import { Button, Sheet, openOverlay, promptDialog, Row } from '@/ui';
 import { filesSettings } from '../settings';
 import { t } from '../i18n';
 import s from '../library.module.css';
@@ -20,7 +20,6 @@ export function openFavFolders(): void {
 
 function FavFoldersDialog({ onClose }: { onClose: () => void }) {
   const list = filesSettings.use((x) => x.favFolders);
-  const showDav = filesSettings.use((x) => x.showDavInFavorites);
   return (
     <Sheet
       open
@@ -43,7 +42,6 @@ function FavFoldersDialog({ onClose }: { onClose: () => void }) {
         </>
       }
     >
-      <Row title="[WebDav]" right={<Switch checked={showDav} onChange={(v) => filesSettings.set({ showDavInFavorites: v })} />} />
       {list.length === 0 && <div className={`${s.pad} ${s.dim}`}>{t('filesEmpty')}</div>}
       {list.map((p) => (
         <Row key={p} icon={<Folder size={18} />} title={p || t('filesRoot')} right={<button className={s.moreBtn} aria-label={t('filesRemoveFav')} onClick={() => removeFavFolder(p)}><X size={16} /></button>} />

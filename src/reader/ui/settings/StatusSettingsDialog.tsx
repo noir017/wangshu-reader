@@ -1,8 +1,7 @@
 // 阅读状态栏设置（PrefStatusSetting，STATUS-002）
 import { Sheet, Button, Row } from '@/ui';
-import { controlSettings, statusSettings } from '@/reader/settings';
-import { actionOptions } from '../actions/actions';
-import { ColorRow, ResetRow, SelectRow, SliderRow, SwitchRow } from './rows';
+import { statusSettings } from '@/reader/settings';
+import { ColorRow, ResetRow, SliderRow, SwitchRow } from './rows';
 import { openFontPicker } from './FontPicker';
 import { useFontLabel } from './font-names';
 import { t } from '../messages';
@@ -11,7 +10,6 @@ export function StatusSettingsDialog({ close }: { close: () => void }) {
   const custom = statusSettings.use((s) => s.statusCustomizeFont);
   const fontName = statusSettings.use((s) => s.statusFontName);
   const label = useFontLabel(fontName);
-  const actions = actionOptions();
   return (
     <Sheet open position="center" title={t('status_bar')} onClose={close} actions={<Button primary onClick={close}>{t('ok')}</Button>}>
       <SwitchRow slice={statusSettings} k="statusBarOnTop" title={t('status_bar_on_top')} />
@@ -29,12 +27,7 @@ export function StatusSettingsDialog({ close }: { close: () => void }) {
           <ColorRow slice={statusSettings} k="statusBackColor" title={t('statubar_back_color')} />
         </>
       )}
-      <SelectRow slice={controlSettings} k="statusClickLeft" title={t('statubar_click_left')} options={actions} />
-      <SelectRow slice={controlSettings} k="statusClickMiddle" title={t('statubar_click_middle')} options={actions} />
-      <SelectRow slice={controlSettings} k="statusClickRight" title={t('statubar_click_right')} options={actions} />
-      <SelectRow slice={controlSettings} k="statusLongClickLeft" title={t('statubar_long_tap_left')} options={actions} />
-      <SelectRow slice={controlSettings} k="statusLongClickMiddle" title={t('statubar_long_tap_middle')} options={actions} />
-      <SelectRow slice={controlSettings} k="statusLongClickRight" title={t('statubar_long_tap_right')} options={actions} />
+      {/* 状态栏左中右的点击 / 长按绑定只放在控制选项「阅读状态栏」（CTRL-010），这里不再重复 */}
       <ResetRow
         label={t('reset')}
         onClick={() => {

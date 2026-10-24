@@ -37,6 +37,8 @@ export const ReaderAction = {
   NextChapter: 13,
   BackToShelf: 14,
   None: 15,
+  /** 16、24、25 已撤出选择列表（16 与 14 相同；引擎没有滚一行接口，24/25 只是翻整页），编号保留不复用：
+   *  旧设置里存着的按 14 / 0 / 1 执行，见 ui/actions/actions.ts 的 normalizeAction */
   Exit: 16,
   TextSelection: 17,
   AutoScroll: 18,
@@ -101,8 +103,6 @@ export const textSettings = defineSettings('reader.text', {
   /** 东亚排版：按字折行 + 避头尾 */
   textCJK: zh,
   textDense: false,
-  /** 竖排 */
-  verticalAlignment: false,
   textJian2Fan: false,
   textFan2Jian: false,
   /** 首行缩进与缩进字数 0..4 */
@@ -110,8 +110,6 @@ export const textSettings = defineSettings('reader.text', {
   indentLength: 2,
   /** 删除多余空格空行 */
   trimBlankSpace: false,
-  /** TXT 新章换页 */
-  txtChapterSplit: false,
   /** 翻页时保留上一页最后一行 */
   keepOneLineWhenPaging: false,
   /** 文本编码：'auto' 或 TextDecoder 支持的标签（gbk、big5、utf-16le…） */
@@ -261,7 +259,6 @@ export const screenSettings = defineSettings('reader.screen', {
   remind2: false,
   remind2TimeHour: 23,
   remind2TimeMinute: 30,
-  showBookmarkIcon: true,
 });
 
 /** 主题与自动日夜（§3.5）。用户主题列表存这里；内置 14 套主题的数据在 src/reader/ui 的主题模块 */

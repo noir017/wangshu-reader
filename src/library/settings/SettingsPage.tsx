@@ -82,8 +82,6 @@ function ShelfSection() {
       <div className={`${s.fieldLabel} ${s.pad}`} style={{ paddingBottom: 0 }}>{t('coverSizes')}</div>
       <PrefSlider slice={shelfSettings} k="shelfCoverSize" title={t('shelfCoverSize')} min={30} max={300} />
       <PrefSlider slice={shelfSettings} k="recentCoverSize" title={t('recentCoverSize')} min={30} max={300} />
-      <PrefSlider slice={shelfSettings} k="fileCoverSize" title={t('fileCoverSize')} min={30} max={300} />
-      <PrefSlider slice={shelfSettings} k="netCoverSize" title={t('netCoverSize')} min={30} max={300} />
       <PrefSlider slice={shelfSettings} k="shelfFontSize" title={t('fontSize')} min={10} max={30} />
       <PrefSwitch slice={shelfSettings} k="shelfBoldFont" title={t('boldFont')} />
       <Row title={t('importBooks')} icon={<Upload size={18} />} onClick={openImportDialog} />

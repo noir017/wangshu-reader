@@ -22,7 +22,6 @@ const tt = defineMessages({
     a13: '下一章节',
     a14: '返回书库',
     a15: '无',
-    a16: '退出整个程序',
     a17: '页面文字摘录',
     a18: '自动滚屏',
     a19: '朗读',
@@ -30,8 +29,6 @@ const tt = defineMessages({
     a21: '可视选项',
     a22: '控制选项',
     a23: '其它选项',
-    a24: '向上滑动',
-    a25: '向下滑动',
   },
   en: {
     a0: 'Page up',
@@ -50,7 +47,6 @@ const tt = defineMessages({
     a13: 'Next chapter',
     a14: 'Back to shelf',
     a15: 'None',
-    a16: 'Close reader',
     a17: 'Text selection',
     a18: 'Auto scroll',
     a19: 'Speak',
@@ -58,18 +54,31 @@ const tt = defineMessages({
     a21: 'Visual options',
     a22: 'Control options',
     a23: 'Miscellaneous options',
-    a24: 'Move up',
-    a25: 'Move down',
   },
 });
 
-export const ALL_ACTIONS: ReaderActionId[] = Array.from({ length: 26 }, (_, i) => i as ReaderActionId);
+/**
+ * 撤出选择列表的旧编号 → 实际执行的动作。点击区、按键、手势、状态栏、摇一摇的绑定里可能还存着这些值，
+ * 分发和显示时都按映射后的动作处理（行为与撤之前一致）：16 退出程序 = 14 返回书库；24/25 引擎没有滚一行接口，一直是翻整页。
+ */
+const RETIRED_ACTIONS: Partial<Record<number, ReaderActionId>> = {
+  [ReaderAction.Exit]: ReaderAction.BackToShelf,
+  [ReaderAction.LineUp]: ReaderAction.PageUp,
+  [ReaderAction.LineDown]: ReaderAction.PageDown,
+};
 
-export function actionLabel(id: number): string {
-  return tt(`a${id}` as 'a0');
+export function normalizeAction(id: number): ReaderActionId {
+  return (RETIRED_ACTIONS[id] ?? id) as ReaderActionId;
 }
 
-/** 下拉框用的全部 26 项 */
+/** 可选的动作（0..25 去掉已撤的 16、24、25） */
+export const ALL_ACTIONS: ReaderActionId[] = Array.from({ length: 26 }, (_, i) => i as ReaderActionId).filter((id) => !(id in RETIRED_ACTIONS));
+
+export function actionLabel(id: number): string {
+  return tt(`a${normalizeAction(id)}` as 'a0');
+}
+
+/** 下拉框用的全部可选动作 */
 export function actionOptions(): { value: ReaderActionId; label: string }[] {
   return ALL_ACTIONS.map((value) => ({ value, label: actionLabel(value) }));
 }
@@ -78,8 +87,6 @@ export function actionOptions(): { value: ReaderActionId; label: string }[] {
 export interface ActionHost {
   pageUp(): void;
   pageDown(): void;
-  lineUp(): void;
-  lineDown(): void;
   adjacentFile(dir: 1 | -1): void;
   /** 发 bus 命令（搜索/书签/目录/选择/朗读） */
   command<K extends keyof ReaderCommands>(type: K, payload: ReaderCommands[K]): void;
@@ -90,7 +97,6 @@ export interface ActionHost {
   fontSizeBar(): void;
   chapter(dir: 1 | -1): void;
   backToShelf(): void;
-  exitReader(): void;
   autoScroll(): void;
   brightnessPanel(): void;
   openOptions(which: 'visual' | 'control' | 'misc'): void;
@@ -101,7 +107,7 @@ export interface ActionHost {
  * pos 为触发位置（长按坐标），只用于「文字摘录」。
  */
 export function performAction(id: number, host: ActionHost, pos?: { x: number; y: number }): boolean {
-  switch (id) {
+  switch (normalizeAction(id)) {
     case ReaderAction.PageUp:
       host.pageUp();
       return true;
@@ -147,9 +153,6 @@ export function performAction(id: number, host: ActionHost, pos?: { x: number; y
     case ReaderAction.BackToShelf:
       host.backToShelf();
       return true;
-    case ReaderAction.Exit:
-      host.exitReader();
-      return true;
     case ReaderAction.TextSelection:
       host.command('selection.start', pos ? { x: pos.x, y: pos.y } : {});
       return true;
@@ -170,12 +173,6 @@ export function performAction(id: number, host: ActionHost, pos?: { x: number; y
       return true;
     case ReaderAction.MiscOptions:
       host.openOptions('misc');
-      return true;
-    case ReaderAction.LineUp:
-      host.lineUp();
-      return true;
-    case ReaderAction.LineDown:
-      host.lineDown();
       return true;
     default:
       return false; // 15 无 / 未知
