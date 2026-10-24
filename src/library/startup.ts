@@ -41,7 +41,7 @@ export function runStartup(initialRoute: string): void {
   const link = q.get('open') ?? q.get('url');
   if (link && /^https?:\/\//i.test(link)) {
     enqueueDownload({ title: '', url: link });
-    history.replaceState(null, '', window.location.pathname + window.location.hash);
+    history.replaceState(history.state, '', window.location.pathname + window.location.hash);
     return;
   }
 

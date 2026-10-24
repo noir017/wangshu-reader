@@ -45,7 +45,8 @@ function ShelfFilter({ onClose }: { onClose: () => void }) {
           label={t('options')}
           onClick={() => {
             close();
-            navigate('settings');
+            // 带分区是次级页：返回键回书架，而不是像抽屉里切顶级页那样回首页
+            navigate('settings', 'shelf');
           }}
         >
           <Settings size={20} />
