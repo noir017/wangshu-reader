@@ -53,6 +53,8 @@ function topColor(): [number, number, number] {
 
 export function startStatusBarSync(): void {
   if (!nativeHost || typeof MutationObserver === 'undefined') return;
+  // 阅读页顶部留给状态栏的那一条（reader-ui.module.css 的 .root / .top 用）；书架页不铺满全屏，用不到
+  if (nativeHost.statusBarHeight) document.documentElement.style.setProperty('--host-status-h', `${nativeHost.statusBarHeight}px`);
   let last = '';
   let timer = 0;
   const run = () => {
