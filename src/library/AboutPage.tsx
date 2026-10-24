@@ -4,7 +4,7 @@ import { TopBar } from './TopBar';
 import { t } from './i18n';
 import s from './library.module.css';
 
-const VERSION = '0.1.1';
+const VERSION = '0.1.2';
 
 export function AboutPage() {
   const features = [
