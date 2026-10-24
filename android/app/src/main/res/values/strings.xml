@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">望舒</string>
+    <string name="app_name">望舒阅读器</string>
     <string name="starting">正在启动内置服务端…</string>
     <string name="webview_too_old">系统 WebView 版本过低，请在应用商店更新「Android System WebView」</string>
 </resources>
