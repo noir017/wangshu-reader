@@ -20,9 +20,11 @@ const FAKE_HOST = `(() => {
   window.WangshuAndroid = { postMessage: (m) => window.__hostMsgs.push(JSON.parse(m)) };
 })();`;
 
+type HostMsg = { type: string; [k: string]: unknown };
+
 /** 最后一条某类型的消息 */
 const lastMsg = (page: Page, type: string) =>
-  page.evaluate((t) => [...((window as any).__hostMsgs as { type: string }[])].reverse().find((m) => m.type === t) ?? null, type);
+  page.evaluate((t) => [...((window as any).__hostMsgs as HostMsg[])].reverse().find((m) => m.type === t) ?? null, type);
 
 /** 元素背景色转 #rrggbb */
 const bgHex = (page: Page, selector: string) =>
