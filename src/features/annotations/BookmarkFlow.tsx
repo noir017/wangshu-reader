@@ -194,7 +194,7 @@ export function BookmarkCorner() {
       data-marked={marked ? 'true' : 'false'}
       aria-label={ta('addBookmark')}
       style={{
-        top: 'env(safe-area-inset-top, 0px)',
+        top: 'var(--host-status-h, env(safe-area-inset-top, 0px))',
         right: 0,
         width: 40,
         height: 40,
