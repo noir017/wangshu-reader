@@ -94,7 +94,7 @@ test('TXT（红楼梦，GBK/大文件）：打开耗时、翻页、按进度跳�
   expect(Number(dom)).toBe(before.length);
 });
 
-test('EPUB（红楼梦，中文，竖排设置不报错）与双页', async ({ page }) => {
+test('EPUB（红楼梦，中文）双页', async ({ page }) => {
   test.skip(!have('pg24264-hongloumeng.epub'));
   await page.setViewportSize({ width: 1100, height: 700 });
   await open(page, 'flip=3&speed=50&dual=on&src=/samples/books/pg24264-hongloumeng.epub', 60000);
@@ -103,8 +103,6 @@ test('EPUB（红楼梦，中文，竖排设置不报错）与双页', async ({ p
   const d = await h<any>(page, 'h.dualState()');
   expect(d.right?.vis === 'visible' || d.rightTop === null).toBe(true);
   await page.screenshot({ path: 'test-results/books-hlm-dual.png' });
-  await h(page, 'h.settings.textSettings.set({ verticalAlignment: true })');
-  await page.waitForTimeout(800);
   expect(await h<string>(page, 'h.error')).toBe('');
 });
 

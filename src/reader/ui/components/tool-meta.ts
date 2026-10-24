@@ -1,4 +1,4 @@
-// 20 个工具按钮的图标与文案键（图标用 lucide 重绘，不用 apk 位图）
+// 工具按钮的图标与文案键（图标用 lucide 重绘，不用 apk 位图）
 import {
   BookmarkIcon,
   CloudDownload,
@@ -8,7 +8,6 @@ import {
   ListTree,
   MoonStar,
   Palette,
-  Power,
   ScreenShare,
   Search,
   Settings2,
@@ -46,7 +45,6 @@ export const TOOL_META: Record<number, ToolMeta> = {
   [ToolButton.Misc]: { icon: SquareMenu, label: 'btn_misc' },
   [ToolButton.Themes]: { icon: Palette, label: 'btn_themes' },
   [ToolButton.Options]: { icon: Settings2, label: 'btn_options' },
-  [ToolButton.Shutdown]: { icon: Power, label: 'btn_shutdown' },
   [ToolButton.DualPage]: { icon: Columns2, label: 'btn_dualpage' },
   [ToolButton.Customize]: { icon: Contrast, label: 'btn_customize' },
   [ToolButton.SyncUp]: { icon: CloudUpload, label: 'btn_sync_up' },

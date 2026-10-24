@@ -1,5 +1,5 @@
 // 其它选项（PrefMisc，VIEW-009）：全屏/常亮/边缘手势/状态栏/智能排版/自动滚屏/EPUB/护眼/特殊选项。
-import { controlSettings, cssSettings, flipSettings, screenSettings, statusSettings, textSettings, autoScrollSettings, AutoScrollMode, themeSettings } from '@/reader/settings';
+import { controlSettings, cssSettings, flipSettings, screenSettings, statusSettings, textSettings, autoScrollSettings, AutoScrollMode } from '@/reader/settings';
 import { openDictSettings, openNamesDialog, openTtsMoreDialog } from '@/features';
 import { Row, toast, openOverlay } from '@/ui';
 import { useReaderUi } from '../store';
@@ -80,7 +80,6 @@ export function MiscOptions({ close, onSwitch }: { close: () => void; onSwitch: 
       <Section>{t('typesetting')}</Section>
       <SwitchRow slice={textSettings} k="indentParagraph" title={t('indent_paragraph')} onGear={openIndentDialog} />
       <SwitchRow slice={textSettings} k="trimBlankSpace" title={t('trim_blank')} />
-      <SwitchRow slice={textSettings} k="txtChapterSplit" title={t('txt_chapter_split')} />
 
       <Section>{t('auto_scroll_control')}</Section>
       <SelectRow
@@ -122,12 +121,7 @@ export function MiscOptions({ close, onSwitch }: { close: () => void; onSwitch: 
       <Row title={t('dual_page')} onClick={openDualPageDialog} right={<DualLabel />} />
       <SwitchRow slice={flipSettings} k="pageSound" title={t('page_sound')} onGear={openPageSoundDialog} />
       <SwitchRow slice={screenSettings} k="openBookAnim" title={t('open_book_anim')} />
-      <SwitchRow
-        slice={themeSettings}
-        k="sysDarkModeFollow"
-        title={t('follow_sys_dark')}
-        onSet={(v) => themeSettings.set(v ? { sysDarkModeFollow: true, autoTheme: false } : { sysDarkModeFollow: false })}
-      />
+      {/* 「跟随系统深色模式」只放在配色方案对话框（ThemeDialogs），这里不再重复 */}
       <SwitchRow slice={controlSettings} k="disableEdgeTouch" title={t('disable_edge_touch')} onGear={openEdgeTouchDialog} />
 
       <Section>{' '}</Section>

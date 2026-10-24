@@ -18,8 +18,6 @@ function mockHost() {
   const host: ActionHost = {
     pageUp: rec('pageUp'),
     pageDown: rec('pageDown'),
-    lineUp: rec('lineUp'),
-    lineDown: rec('lineDown'),
     adjacentFile: rec('adjacentFile'),
     command: rec('command'),
     bookInfo: rec('bookInfo'),
@@ -29,7 +27,6 @@ function mockHost() {
     fontSizeBar: rec('fontSizeBar'),
     chapter: rec('chapter'),
     backToShelf: rec('backToShelf'),
-    exitReader: rec('exitReader'),
     autoScroll: rec('autoScroll'),
     brightnessPanel: rec('brightnessPanel'),
     openOptions: rec('openOptions'),

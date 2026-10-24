@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { appSettings } from '@/core/app-settings';
 import { ReaderAction } from '@/reader/settings';
-import { actionForArea, actionLabel, actionOptions, decideTap, performAction, type ActionHost } from './actions';
+import { ALL_ACTIONS, actionForArea, actionLabel, actionOptions, decideTap, normalizeAction, performAction, type ActionHost } from './actions';
 
 function mockHost() {
   const calls: string[] = [];
@@ -12,8 +12,6 @@ function mockHost() {
   const host: ActionHost = {
     pageUp: rec('pageUp'),
     pageDown: rec('pageDown'),
-    lineUp: rec('lineUp'),
-    lineDown: rec('lineDown'),
     adjacentFile: rec('adjacentFile'),
     command: rec('command'),
     bookInfo: rec('bookInfo'),
@@ -23,7 +21,6 @@ function mockHost() {
     fontSizeBar: rec('fontSizeBar'),
     chapter: rec('chapter'),
     backToShelf: rec('backToShelf'),
-    exitReader: rec('exitReader'),
     autoScroll: rec('autoScroll'),
     brightnessPanel: rec('brightnessPanel'),
     openOptions: rec('openOptions'),
@@ -31,7 +28,7 @@ function mockHost() {
   return { host, calls };
 }
 
-describe('动作分发 performAction（CTRL-002，26 项）', () => {
+describe('动作分发 performAction（CTRL-002）', () => {
   const expected: [number, string][] = [
     [0, 'pageUp'],
     [1, 'pageDown'],
@@ -48,7 +45,6 @@ describe('动作分发 performAction（CTRL-002，26 项）', () => {
     [12, 'chapter(-1)'],
     [13, 'chapter(1)'],
     [14, 'backToShelf'],
-    [16, 'exitReader'],
     [17, 'command("selection.start",{})'],
     [18, 'autoScroll'],
     [19, 'command("tts.toggle",{})'],
@@ -56,10 +52,19 @@ describe('动作分发 performAction（CTRL-002，26 项）', () => {
     [21, 'openOptions("visual")'],
     [22, 'openOptions("control")'],
     [23, 'openOptions("misc")'],
-    [24, 'lineUp'],
-    [25, 'lineDown'],
   ];
   it.each(expected)('动作 %i → %s', (id, call) => {
+    const { host, calls } = mockHost();
+    expect(performAction(id, host)).toBe(true);
+    expect(calls).toEqual([call]);
+  });
+
+  // 旧设置里可能还存着已撤的编号：照撤之前的实际行为执行
+  it.each([
+    [16, 'backToShelf'],
+    [24, 'pageUp'],
+    [25, 'pageDown'],
+  ] as [number, string][])('已撤的动作 %i → %s', (id, call) => {
     const { host, calls } = mockHost();
     expect(performAction(id, host)).toBe(true);
     expect(calls).toEqual([call]);
@@ -87,14 +92,28 @@ describe('动作分发 performAction（CTRL-002，26 项）', () => {
     }
   });
 
-  it('26 项都有中文名称，与 values-zh 的 controls 一致', () => {
+  it('可选的 23 项都有中文名称，与 values-zh 的 controls 一致；16/24/25 不在列表里', () => {
     appSettings.set({ language: 'zh' }); // happy-dom 的 navigator.language 是 en-US
-    const labels = actionOptions().map((o) => o.label);
-    expect(labels).toHaveLength(26);
+    const opts = actionOptions();
+    const labels = opts.map((o) => o.label);
+    expect(labels).toHaveLength(23);
+    expect(opts.map((o) => o.value)).toEqual(ALL_ACTIONS);
+    expect(ALL_ACTIONS).not.toContain(16);
+    expect(ALL_ACTIONS).not.toContain(24);
+    expect(ALL_ACTIONS).not.toContain(25);
     expect(labels.slice(0, 5)).toEqual(['向上翻页', '向下翻页', '上一文件', '下一文件', '搜索']);
     expect(actionLabel(15)).toBe('无');
-    expect(actionLabel(24)).toBe('向上滑动');
-    expect(new Set(labels).size).toBe(26);
+    expect(new Set(labels).size).toBe(23);
+  });
+
+  it('已撤编号显示为实际执行的动作', () => {
+    appSettings.set({ language: 'zh' });
+    expect([16, 24, 25].map(normalizeAction)).toEqual([ReaderAction.BackToShelf, ReaderAction.PageUp, ReaderAction.PageDown]);
+    expect(actionLabel(16)).toBe('返回书库');
+    expect(actionLabel(24)).toBe('向上翻页');
+    expect(actionLabel(25)).toBe('向下翻页');
+    expect(normalizeAction(15)).toBe(15);
+    expect(normalizeAction(99)).toBe(99);
   });
 });
 
