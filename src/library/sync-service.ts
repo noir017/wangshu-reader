@@ -13,7 +13,7 @@ import {
   type SyncUi,
 } from '@/storage/sync';
 import type { RecentItem } from '@/storage/moon-formats';
-import { navigate } from '@/core/router';
+import { replaceRoute } from '@/core/router';
 import { formatPercent } from './format';
 import { t } from './i18n';
 
@@ -51,8 +51,8 @@ function currentReadId(): string | undefined {
 
 /** 重新挂载阅读页，让它按新写入的位置重新打开（hash 先离开再回来） */
 function reloadReader(bookId: string): void {
-  navigate('');
-  setTimeout(() => navigate('read', bookId), 30);
+  replaceRoute('');
+  setTimeout(() => replaceRoute('read', bookId), 30);
 }
 
 /** 从书架打开书之前：最多等 3 秒拿云端进度，有更新就询问（在阅读页加载前处理，省掉重载） */

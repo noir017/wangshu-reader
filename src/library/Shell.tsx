@@ -44,7 +44,7 @@ export function LibraryShell({ route }: { route: Route }) {
     runStartup(route.name);
     const h = globalThis.location.hash;
     if ((h === '' || h === '#' || h === '#/') && startTab.current && startTab.current !== route.name && TAB_ROUTES.has(startTab.current)) {
-      globalThis.location.replace(`#/${startTab.current}`);
+      navigate(startTab.current);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -165,4 +165,3 @@ export function LibraryShell({ route }: { route: Route }) {
   );
 }
 
-void navigate;
