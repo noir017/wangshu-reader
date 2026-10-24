@@ -26,7 +26,21 @@ export function hostServer(): { url: string; token: string } | undefined {
   return nativeHost?.mode === 'local' ? nativeHost.local : undefined;
 }
 
+function post(msg: Record<string, unknown>): void {
+  window.WangshuAndroid?.postMessage(JSON.stringify(msg));
+}
+
 /** 切换服务端模式：原生端保存、启停内置服务端，然后重新加载页面 */
 export function setServerMode(mode: ServerMode): void {
-  window.WangshuAndroid?.postMessage(JSON.stringify({ type: 'setMode', mode }));
+  post({ type: 'setMode', mode });
+}
+
+/** 全屏阅读：原生隐藏状态栏和导航栏（WebView 不给网页用 Fullscreen API） */
+export function setHostFullscreen(on: boolean): void {
+  post({ type: 'fullscreen', on });
+}
+
+/** 状态栏底色 #rrggbb；light = 浅色底、深色图标 */
+export function setHostStatusBar(color: string, light: boolean): void {
+  post({ type: 'statusBar', color, light });
 }
