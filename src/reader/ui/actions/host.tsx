@@ -1,5 +1,5 @@
 // 动作宿主：ActionHost 的真实实现（把 ReaderAction 落到引擎、bus、对话框上）。
-import { navigate } from '@/core/router';
+import { back, replaceRoute } from '@/core/router';
 import { openBookInfo, getAdjacentBook } from '@/library';
 import { screenSettings, themeSettings } from '@/reader/settings';
 import { getBookFile } from '@/storage/db';
@@ -24,7 +24,7 @@ function quiesce(): void {
 
 export function leaveReader(): void {
   quiesce();
-  navigate('');
+  back();
 }
 
 async function shareBook(): Promise<void> {
@@ -97,7 +97,7 @@ export function createActionHost(): ActionHost {
       void getAdjacentBook(s.bookId, dir).then((id) => {
         if (id) {
           quiesce();
-          navigate('read', id);
+          replaceRoute('read', id);
         } else toast(dir === 1 ? t('no_next_file') : t('no_prior_file'));
       });
     },

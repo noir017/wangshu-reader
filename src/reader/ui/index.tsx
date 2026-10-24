@@ -2,7 +2,7 @@
 // 在 <ReaderSessionContext.Provider> 里挂 <ReaderFeatures />（features 经 bus 接收命令）。
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Emitter } from '@/core/emitter';
-import { navigate } from '@/core/router';
+import { back } from '@/core/router';
 import type { ReaderCommands, ReaderSession } from '@/core/reader-session';
 import { ReaderSessionContext } from '@/core/reader-session';
 import { fixedSettings, textSettings, statusSettings } from '@/reader/settings';
@@ -139,7 +139,7 @@ export function ReaderPage({ bookId, deps }: { bookId: string; deps?: Partial<Re
       phase.entries.map((e) => ({ value: e, label: e.split('/').pop() ?? e, subtitle: e.includes('/') ? e : undefined })),
     ).then((v) => {
       if (!alive) return;
-      if (v === null) navigate('');
+      if (v === null) back();
       else setEntry(v);
     });
     return () => {
@@ -153,7 +153,7 @@ export function ReaderPage({ bookId, deps }: { bookId: string; deps?: Partial<Re
     let alive = true;
     void askPassword({ wrong: phase.wrong }).then((v) => {
       if (!alive) return;
-      if (!v) navigate('');
+      if (!v) back();
       else {
         savePw.current = v.save;
         setPassword(v.password);
@@ -246,7 +246,7 @@ export function ReaderPage({ bookId, deps }: { bookId: string; deps?: Partial<Re
                     {t('retry')}
                   </button>
                 )}
-                <button type="button" className={s.btn} onClick={() => navigate('')}>
+                <button type="button" className={s.btn} onClick={back}>
                   {t('back_to_shelf')}
                 </button>
               </div>

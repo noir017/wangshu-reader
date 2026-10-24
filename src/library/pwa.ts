@@ -32,7 +32,7 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
 /** 分享目标：service worker 把文件存进 Cache 后重定向到 ?shared=1，这里取出来导入并清掉 */
 export async function consumeSharedFiles(): Promise<boolean> {
   if (typeof window === 'undefined' || !new URLSearchParams(window.location.search).has('shared') || !('caches' in window)) return false;
-  history.replaceState(null, '', window.location.pathname + window.location.hash);
+  history.replaceState(history.state, '', window.location.pathname + window.location.hash);
   const cache = await caches.open(SHARE_CACHE);
   const reqs = await cache.keys();
   const files: File[] = [];
