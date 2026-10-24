@@ -2,7 +2,7 @@
 import { useEffect, type RefObject } from 'react';
 import type { ReaderLocation } from '@/core/reader';
 import type { ReaderSession } from '@/core/reader-session';
-import { nativeHost } from '@/core/host';
+import { nativeHost, setHostReader } from '@/core/host';
 import { ReaderAction, controlSettings, flipSettings, screenSettings, textSettings, themeSettings } from '@/reader/settings';
 import { confirmDialog, toast } from '@/ui';
 import { performAction, type ActionHost } from '../actions/actions';
@@ -122,16 +122,12 @@ export function useSystemEffects(session: ReaderSession | null): void {
   const auto = useReaderUi((s) => s.autoRunning || s.speedRead);
   const state = screenSettings.use((s) => s.screenState);
   const fullscreen = screenSettings.use((s) => s.fullscreen);
+  const menu = useReaderUi((s) => s.menu);
 
   // 全屏（VIEW-012）：浏览器要求用户手势才能进全屏，所以只在触屏设备（对应原 app 的手机/平板沉浸阅读）上、
   // 用阅读页里的第一次触摸去触发；桌面浏览器不自动进入（用选项菜单里的「全屏模式」）。离开阅读页时退出。
-  // Android app 由原生隐藏系统栏，不要手势：一进阅读页就全屏
   useEffect(() => {
-    if (!session || !fullscreen) return;
-    if (nativeHost) {
-      void enterFullscreen();
-      return () => void exitFullscreen();
-    }
+    if (!session || !fullscreen || nativeHost) return;
     if (!fullscreenSupported() || isFullscreen()) return;
     if (typeof matchMedia === 'undefined' || !matchMedia('(pointer: coarse)').matches) return;
     let entered = false;
@@ -145,6 +141,17 @@ export function useSystemEffects(session: ReaderSession | null): void {
       if (entered && isFullscreen()) void exitFullscreen();
     };
   }, [session, fullscreen]);
+
+  // Android app：阅读页铺满全屏，不要手势。全屏模式下平时隐藏状态栏和导航栏，点屏幕中间呼出菜单栏时显示状态栏
+  // （透明，浮在菜单栏上，颜色就是菜单栏的颜色）；状态栏显隐不改变正文高度，不会触发重新分页
+  useEffect(() => {
+    if (!session || !nativeHost) return;
+    setHostReader({ on: true, hideStatus: fullscreen && !menu, hideNav: fullscreen });
+  }, [session, fullscreen, menu]);
+  useEffect(() => {
+    if (!session || !nativeHost) return;
+    return () => setHostReader({ on: false, hideStatus: false, hideNav: false });
+  }, [session]);
 
   // 常亮：每次操作刷新计时；自动滚屏/速读强制常亮
   useEffect(() => {

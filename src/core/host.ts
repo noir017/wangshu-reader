@@ -10,6 +10,8 @@ export interface NativeHost {
   mode: ServerMode;
   /** 内置服务端（mode=local 时有）；ok=false 表示没起来，error 是原因 */
   local?: { url: string; token: string; ok: boolean; error?: string };
+  /** 系统状态栏高度（CSS px，含刘海）。阅读页铺满全屏，顶部按它留出一条，状态栏显隐时正文高度不变 */
+  statusBarHeight?: number;
 }
 
 declare global {
@@ -35,9 +37,12 @@ export function setServerMode(mode: ServerMode): void {
   post({ type: 'setMode', mode });
 }
 
-/** 全屏阅读：原生隐藏状态栏和导航栏（WebView 不给网页用 Fullscreen API） */
-export function setHostFullscreen(on: boolean): void {
-  post({ type: 'fullscreen', on });
+/**
+ * 阅读页的系统栏（WebView 不给网页用 Fullscreen API，由原生代办）：on = 阅读页布局（铺满全屏、状态栏透明浮在页面上）；
+ * hideStatus / hideNav = 隐藏状态栏 / 导航栏（边缘划入可临时呼出）
+ */
+export function setHostReader(state: { on: boolean; hideStatus: boolean; hideNav: boolean }): void {
+  post({ type: 'reader', ...state });
 }
 
 /** 状态栏底色 #rrggbb；light = 浅色底、深色图标 */

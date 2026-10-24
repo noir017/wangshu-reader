@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -67,10 +68,13 @@ public class MainActivity extends Activity {
     private ScriptHandler hostScript;
     private boolean loaded;
     private ValueCallback<Uri[]> fileCallback;
-    /** 状态栏颜色由前端取页面顶边的颜色发来；全屏阅读时隐藏状态栏和导航栏 */
+    /** 状态栏颜色由前端取页面顶边的颜色发来 */
     private int barColor = Color.WHITE;
     private boolean barLight = true;
-    private boolean fullscreen;
+    /** 阅读页：铺满全屏（顶部那条由页面自己留），状态栏透明；hideStatus / hideNav 由前端按全屏设置和菜单栏显隐发来 */
+    private boolean reader, hideStatus, hideNav;
+    /** 主题里的导航栏颜色，离开阅读页时还原 */
+    private int navColor;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -78,19 +82,24 @@ public class MainActivity extends Activity {
         prefs = getSharedPreferences("wangshu", MODE_PRIVATE);
         if (server == null) server = new LocalServer(this, prefs);
 
+        navColor = getWindow().getNavigationBarColor();
         root = new FrameLayout(this);
         root.setBackgroundColor(barColor);
         // targetSdk 35 在 Android 15 上强制全面屏，WebView 拿不到系统栏的 safe-area，内容会钻到状态栏底下：直接按系统栏/键盘留边。
-        // 全屏时窗口铺进刘海（见 applySystemBars），再按刘海的安全区留边，留出的那一条是 root 的底色（= 页面顶边色）
+        // 阅读页铺满全屏：顶部不留（页面按注入的 statusBarHeight 自己留，状态栏显隐时正文高度不变），两侧、底部按刘海/导航栏/键盘留
         root.setOnApplyWindowInsetsListener((v, insets) -> {
             int l = insets.getSystemWindowInsetLeft(), t = insets.getSystemWindowInsetTop();
             int r = insets.getSystemWindowInsetRight(), b = insets.getSystemWindowInsetBottom();
-            DisplayCutout cut = fullscreen && Build.VERSION.SDK_INT >= 28 ? insets.getDisplayCutout() : null;
-            if (cut != null) {
-                l = Math.max(l, cut.getSafeInsetLeft());
-                t = Math.max(t, cut.getSafeInsetTop());
-                r = Math.max(r, cut.getSafeInsetRight());
-                b = Math.max(b, cut.getSafeInsetBottom());
+            if (reader) {
+                t = 0;
+                // 铺满全屏后键盘不再缩小窗口，按键盘高度留底
+                if (Build.VERSION.SDK_INT >= 30) b = Math.max(b, insets.getInsets(WindowInsets.Type.ime()).bottom);
+                DisplayCutout cut = Build.VERSION.SDK_INT >= 28 ? insets.getDisplayCutout() : null;
+                if (cut != null) {
+                    l = Math.max(l, cut.getSafeInsetLeft());
+                    r = Math.max(r, cut.getSafeInsetRight());
+                    b = Math.max(b, cut.getSafeInsetBottom());
+                }
             }
             v.setPadding(l, t, r, b);
             // WindowInsets.CONSUMED 是 API 30 才有的，直接引用在 Android 8~10 上会 NoSuchFieldError
@@ -211,8 +220,10 @@ public class MainActivity extends Activity {
                         barLight = msg.optBoolean("light", true);
                         applySystemBars();
                         break;
-                    case "fullscreen":
-                        fullscreen = msg.optBoolean("on");
+                    case "reader":
+                        reader = msg.optBoolean("on");
+                        hideStatus = reader && msg.optBoolean("hideStatus");
+                        hideNav = reader && msg.optBoolean("hideNav");
                         applySystemBars();
                         break;
                     default:
@@ -239,9 +250,9 @@ public class MainActivity extends Activity {
             LocalServer.Status status = st;
             runOnUiThread(() -> {
                 if (isDestroyed()) return;
-                // 页面要重新加载：先退出全屏，页面起来后会按自己的状态再发
-                if (fullscreen) {
-                    fullscreen = false;
+                // 页面要重新加载：先退出阅读页布局，页面起来后会按自己的状态再发
+                if (reader) {
+                    reader = hideStatus = hideNav = false;
                     applySystemBars();
                 }
                 injectHost(mode, status);
@@ -260,6 +271,7 @@ public class MainActivity extends Activity {
         try {
             host.put("platform", "android");
             host.put("mode", mode);
+            host.put("statusBarHeight", statusBarCssHeight());
             if (st != null) {
                 JSONObject local = new JSONObject();
                 local.put("url", st.url);
@@ -275,48 +287,74 @@ public class MainActivity extends Activity {
         hostScript = WebViewCompat.addDocumentStartJavaScript(web, "window.__WANGSHU_HOST__=" + host + ";", ORIGINS);
     }
 
-    /** 状态栏底色、图标深浅，全屏时隐藏状态栏和导航栏（从屏幕边缘划入可临时呼出） */
+    /** 状态栏高度（CSS px）：取系统的 status_bar_height，刘海更高时取刘海 */
+    @SuppressLint("DiscouragedApi")
+    private double statusBarCssHeight() {
+        int px = 0;
+        int id = getResources().getIdentifier("status_bar_height", "dimen", "android");
+        if (id > 0) px = getResources().getDimensionPixelSize(id);
+        WindowInsets wi = root.getRootWindowInsets();
+        if (wi != null && Build.VERSION.SDK_INT >= 30) px = Math.max(px, wi.getInsetsIgnoringVisibility(WindowInsets.Type.statusBars()).top);
+        if (wi != null && Build.VERSION.SDK_INT >= 28 && wi.getDisplayCutout() != null) px = Math.max(px, wi.getDisplayCutout().getSafeInsetTop());
+        return px > 0 ? px / getResources().getDisplayMetrics().density : 24;
+    }
+
+    /**
+     * 系统栏。书架等页面是普通布局，状态栏涂成页面顶边的颜色；阅读页铺满全屏（刘海也铺进去），状态栏透明浮在页面上，
+     * 按前端的要求隐藏状态栏 / 导航栏（从屏幕边缘划入可临时呼出）
+     */
     @SuppressWarnings("deprecation")
     private void applySystemBars() {
         Window w = getWindow();
         View decor = w.getDecorView();
-        w.setStatusBarColor(barColor);
+        w.setStatusBarColor(reader ? Color.TRANSPARENT : barColor);
+        w.setNavigationBarColor(reader ? Color.TRANSPARENT : navColor);
+        // 系统自己留出的边（比如没铺进去的刘海）露出来的是窗口底色，也跟页面顶边一致
+        w.setBackgroundDrawable(new ColorDrawable(barColor));
         root.setBackgroundColor(barColor);
-        // 默认模式下隐藏状态栏后，刘海那一条是窗口外的黑边；全屏时才铺进去，平时保持默认，布局和以前一样
         if (Build.VERSION.SDK_INT >= 28) {
             WindowManager.LayoutParams lp = w.getAttributes();
-            int cutMode = fullscreen ? WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            int cutMode = reader ? WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
                     : WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT;
             if (lp.layoutInDisplayCutoutMode != cutMode) {
                 lp.layoutInDisplayCutoutMode = cutMode;
                 w.setAttributes(lp);
             }
         }
+        if (Build.VERSION.SDK_INT >= 30) w.setDecorFitsSystemWindows(!reader);
         // API 30 上旧标志位仍会盖过新接口（主题里写了 windowLightStatusBar），所以图标深浅新旧两套都设，同 androidx 的 WindowInsetsControllerCompat
-        int hide = View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY;
         int flags = decor.getSystemUiVisibility() & ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
         if (barLight) flags |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
-        if (Build.VERSION.SDK_INT < 30) flags = fullscreen ? flags | hide : flags & ~hide;
+        if (Build.VERSION.SDK_INT < 30) {
+            flags &= ~(View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                    | View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
+            if (reader) flags |= View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION;
+            if (hideStatus) flags |= View.SYSTEM_UI_FLAG_FULLSCREEN;
+            if (hideNav) flags |= View.SYSTEM_UI_FLAG_HIDE_NAVIGATION;
+            if (hideStatus || hideNav) flags |= View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY;
+        }
         decor.setSystemUiVisibility(flags);
         if (Build.VERSION.SDK_INT >= 30) {
             WindowInsetsController c = w.getInsetsController();
-            if (c == null) return;
-            c.setSystemBarsAppearance(barLight ? WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS : 0,
-                    WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS);
-            if (fullscreen) {
+            if (c != null) {
+                c.setSystemBarsAppearance(barLight ? WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS : 0,
+                        WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS);
                 c.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
-                c.hide(WindowInsets.Type.systemBars());
-            } else {
-                c.show(WindowInsets.Type.systemBars());
+                if (hideStatus) c.hide(WindowInsets.Type.statusBars());
+                else c.show(WindowInsets.Type.statusBars());
+                if (hideNav) c.hide(WindowInsets.Type.navigationBars());
+                else c.show(WindowInsets.Type.navigationBars());
             }
         }
+        // 进出阅读页留边规则不同，重新分发一次
+        root.requestApplyInsets();
     }
 
     /** 旧系统弹过对话框、键盘后会清掉沉浸标志，回到焦点时重设 */
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
-        if (hasFocus && fullscreen) applySystemBars();
+        if (hasFocus && reader) applySystemBars();
     }
 
     private void openExternal(Uri u) {

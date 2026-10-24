@@ -1,5 +1,6 @@
 // 系统相关能力：屏幕常亮（Wake Lock）、全屏、屏幕方向、健康提醒判定。浏览器不支持时都要优雅降级。
-import { nativeHost, setHostFullscreen } from '@/core/host';
+import { nativeHost } from '@/core/host';
+import { screenSettings } from '@/reader/settings';
 
 // ───────────── 屏幕常亮（VIEW-013） ─────────────
 interface WakeLockSentinelLike {
@@ -107,14 +108,13 @@ export class AwakeController {
 }
 
 // ───────────── 全屏（VIEW-012） ─────────────
-// Android app 里由原生隐藏系统栏（WebView 不支持网页的 Fullscreen API），不需要用户手势；状态只能自己记
-let hostFullscreen = false;
-
+// Android app 里由原生隐藏系统栏（WebView 不支持网页的 Fullscreen API）：全屏与否就是「全屏模式」设置，
+// 由阅读页的 useSystemEffects 按设置和菜单栏显隐通知原生，这里不用手势也不用另外记状态
 type FsDoc = Document & { webkitFullscreenElement?: Element | null; webkitExitFullscreen?: () => Promise<void> };
 type FsEl = HTMLElement & { webkitRequestFullscreen?: () => Promise<void> };
 
 export function isFullscreen(): boolean {
-  if (nativeHost) return hostFullscreen;
+  if (nativeHost) return screenSettings.get().fullscreen;
   const d = document as FsDoc;
   return !!(d.fullscreenElement ?? d.webkitFullscreenElement);
 }
@@ -127,11 +127,7 @@ export function fullscreenSupported(): boolean {
 
 /** 必须在用户手势里调用；失败返回 false */
 export async function enterFullscreen(el: HTMLElement = document.documentElement): Promise<boolean> {
-  if (nativeHost) {
-    hostFullscreen = true;
-    setHostFullscreen(true);
-    return true;
-  }
+  if (nativeHost) return true;
   try {
     const e = el as FsEl;
     if (e.requestFullscreen) await e.requestFullscreen();
@@ -144,11 +140,7 @@ export async function enterFullscreen(el: HTMLElement = document.documentElement
 }
 
 export async function exitFullscreen(): Promise<void> {
-  if (nativeHost) {
-    hostFullscreen = false;
-    setHostFullscreen(false);
-    return;
-  }
+  if (nativeHost) return;
   try {
     const d = document as FsDoc;
     if (d.exitFullscreen) await d.exitFullscreen();
