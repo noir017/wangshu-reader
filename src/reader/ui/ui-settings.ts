@@ -1,7 +1,7 @@
 // 阅读页界面自己的设置（不属于 reader/settings.ts 契约的部分）：工具栏布局、首次提示开关等。
 import { defineSettings } from '@/core/settings';
 
-/** 20 个底部工具按钮（ReaderBar，VIEW-004）的序号，同原 app */
+/** 底部工具按钮（ReaderBar，VIEW-004）的序号，同原 app。15「关闭」已撤（与顶栏「返回」完全相同），编号保留不复用 */
 export const ToolButton = {
   Orientation: 0,
   DayNight: 1,
@@ -18,12 +18,15 @@ export const ToolButton = {
   Misc: 12,
   Themes: 13,
   Options: 14,
-  Shutdown: 15,
   DualPage: 16,
   Customize: 17,
   SyncUp: 18,
   SyncDown: 19,
 } as const;
+
+/** 已撤的按钮编号：旧设置的工具栏列表里可能还有，读取时过滤掉 */
+const RETIRED_TOOLS: ReadonlySet<number> = new Set([15]);
+const TOOL_COUNT = 20;
 
 export interface ToolbarItem {
   id: number;
@@ -31,13 +34,13 @@ export interface ToolbarItem {
 }
 
 /** 默认勾选 0,1,2,3,4,17（原版 2 号朗读仅 Pro，web 视为全开） */
-export const DEFAULT_TOOLBAR: ToolbarItem[] = Array.from({ length: 20 }, (_, id) => ({
+export const DEFAULT_TOOLBAR: ToolbarItem[] = Array.from({ length: TOOL_COUNT }, (_, id) => ({
   id,
   on: [0, 1, 2, 3, 4, 17].includes(id),
-}));
+})).filter((it) => !RETIRED_TOOLS.has(it.id));
 
 export const uiSettings = defineSettings('reader.ui', {
-  /** 工具栏：20 项的顺序与勾选 */
+  /** 工具栏：各按钮的顺序与勾选 */
   toolbar: DEFAULT_TOOLBAR,
   doubleLineBar: false,
   /** 首次使用确认/提示的开关 */
@@ -66,16 +69,16 @@ export const uiSettings = defineSettings('reader.ui', {
   speedReadBarVisible: true,
 });
 
-/** 补齐/规整工具栏：缺项补到末尾、重复/越界项丢弃 */
+/** 补齐/规整工具栏：缺项补到末尾、重复/越界/已撤的项丢弃 */
 export function normalizeToolbar(items: ToolbarItem[] | undefined): ToolbarItem[] {
   const seen = new Set<number>();
   const out: ToolbarItem[] = [];
   for (const it of items ?? []) {
-    if (it && Number.isInteger(it.id) && it.id >= 0 && it.id < 20 && !seen.has(it.id)) {
+    if (it && Number.isInteger(it.id) && it.id >= 0 && it.id < TOOL_COUNT && !RETIRED_TOOLS.has(it.id) && !seen.has(it.id)) {
       seen.add(it.id);
       out.push({ id: it.id, on: !!it.on });
     }
   }
-  for (let id = 0; id < 20; id++) if (!seen.has(id)) out.push({ id, on: false });
+  for (let id = 0; id < TOOL_COUNT; id++) if (!seen.has(id) && !RETIRED_TOOLS.has(id)) out.push({ id, on: false });
   return out;
 }

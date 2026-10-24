@@ -1,7 +1,7 @@
 // 控制选项（PrefControl，CTRL-001..005/010）：屏幕方向、摇一摇、点击区、长按、键盘按键、划动手势、状态栏点击。
 import { controlSettings, screenSettings, type ReaderActionId } from '@/reader/settings';
-import { Row } from '@/ui';
-import { actionOptions } from '../actions/actions';
+import { Row, Select } from '@/ui';
+import { actionOptions, normalizeAction } from '../actions/actions';
 import { toggleApplies } from '../actions/tap-zones';
 import { Drawer } from '../components/Drawer';
 import { Section, PlainSelectRow, ResetRow, SelectRow, SliderRow, SwitchRow, GearButton } from './rows';
@@ -11,12 +11,26 @@ import type { SettingsKind } from './VisualOptions';
 
 const actions = () => actionOptions();
 
+type Control = ReturnType<typeof controlSettings.get>;
+type ActionKey = { [K in keyof Control]: Control[K] extends ReaderActionId ? K : never }[keyof Control];
+
+/** 动作绑定下拉：旧设置里存着已撤的编号（16/24/25）时显示它实际执行的动作 */
+function ActionRow({ k, title, disabled }: { k: ActionKey; title: string; disabled?: boolean }) {
+  const v = controlSettings.use((c) => c[k]);
+  const set = (nv: ReaderActionId) => {
+    const patch: Partial<Control> = {};
+    patch[k] = nv;
+    controlSettings.set(patch);
+  };
+  return <Row title={title} disabled={disabled} right={<Select value={normalizeAction(v)} options={actions()} onChange={set} />} />;
+}
+
 function KeyRow({ keyName, title }: { keyName: string; title: string }) {
   const map = controlSettings.use((c) => c.keyMap);
   return (
     <PlainSelectRow
       title={title}
-      value={(map[keyName] ?? 15) as ReaderActionId}
+      value={normalizeAction(map[keyName] ?? 15)}
       options={actions()}
       onChange={(v) => controlSettings.set({ keyMap: { ...controlSettings.get().keyMap, [keyName]: v } })}
     />
@@ -53,16 +67,16 @@ export function ControlOptions({ close, onSwitch }: { close: () => void; onSwitc
           { value: 6, label: t('orient_portrait_sensor') },
         ]}
       />
-      <SelectRow slice={controlSettings} k="doShakePhone" title={t('shake_phone_control')} options={actions()} />
+      <ActionRow k="doShakePhone" title={t('shake_phone_control')} />
 
       <Section>{t('screen_touch_control')}</Section>
-      <SelectRow slice={controlSettings} k="doTapScreenTop" title={t('tap_screen_top')} options={actions()} disabled={!ud} />
-      <SelectRow slice={controlSettings} k="doTapScreenBottom" title={t('tap_screen_bottom')} options={actions()} disabled={!ud} />
+      <ActionRow k="doTapScreenTop" title={t('tap_screen_top')} disabled={!ud} />
+      <ActionRow k="doTapScreenBottom" title={t('tap_screen_bottom')} disabled={!ud} />
       <SwitchRow slice={controlSettings} k="toggleTapMode" title={t('toggle_tap_mode')} disabled={!applies} onGear={openClickTip} />
-      <SelectRow slice={controlSettings} k="doTapScreenLeft" title={t('tap_screen_left')} options={actions()} disabled={!lr} />
-      <SelectRow slice={controlSettings} k="doTapScreenRight" title={t('tap_screen_right')} options={actions()} disabled={!lr} />
+      <ActionRow k="doTapScreenLeft" title={t('tap_screen_left')} disabled={!lr} />
+      <ActionRow k="doTapScreenRight" title={t('tap_screen_right')} disabled={!lr} />
       <Row title={t('set_tap_mode')} onClick={openClickTip} right={<GearButton onClick={openClickTip} />} />
-      <SelectRow slice={controlSettings} k="doLongTap" title={t('long_time_tap_control')} options={actions()} />
+      <ActionRow k="doLongTap" title={t('long_time_tap_control')} />
       <SliderRow slice={controlSettings} k="longTapInterval" title={t('long_tap_interval')} min={0.05} max={2} step={0.05} format={(v) => v.toFixed(2)} />
 
       <Section>{t('key_press_control')}</Section>
@@ -83,18 +97,18 @@ export function ControlOptions({ close, onSwitch }: { close: () => void; onSwitc
       <KeyRow keyName="Escape" title={t('key_back')} />
 
       <Section>{t('finger_gesture_control')}</Section>
-      <SelectRow slice={controlSettings} k="doSwipeRightToLeft" title={t('right_left')} options={actions()} />
-      <SelectRow slice={controlSettings} k="doSwipeLeftToRight" title={t('left_right')} options={actions()} />
-      <SelectRow slice={controlSettings} k="doSwipeTopToBottom" title={t('top_bottom')} options={actions()} />
-      <SelectRow slice={controlSettings} k="doSwipeBottomToTop" title={t('bottom_top')} options={actions()} />
+      <ActionRow k="doSwipeRightToLeft" title={t('right_left')} />
+      <ActionRow k="doSwipeLeftToRight" title={t('left_right')} />
+      <ActionRow k="doSwipeTopToBottom" title={t('top_bottom')} />
+      <ActionRow k="doSwipeBottomToTop" title={t('bottom_top')} />
 
       <Section>{t('statubar')}</Section>
-      <SelectRow slice={controlSettings} k="statusClickLeft" title={t('statubar_click_left')} options={actions()} />
-      <SelectRow slice={controlSettings} k="statusClickMiddle" title={t('statubar_click_middle')} options={actions()} />
-      <SelectRow slice={controlSettings} k="statusClickRight" title={t('statubar_click_right')} options={actions()} />
-      <SelectRow slice={controlSettings} k="statusLongClickLeft" title={t('statubar_long_tap_left')} options={actions()} />
-      <SelectRow slice={controlSettings} k="statusLongClickMiddle" title={t('statubar_long_tap_middle')} options={actions()} />
-      <SelectRow slice={controlSettings} k="statusLongClickRight" title={t('statubar_long_tap_right')} options={actions()} />
+      <ActionRow k="statusClickLeft" title={t('statubar_click_left')} />
+      <ActionRow k="statusClickMiddle" title={t('statubar_click_middle')} />
+      <ActionRow k="statusClickRight" title={t('statubar_click_right')} />
+      <ActionRow k="statusLongClickLeft" title={t('statubar_long_tap_left')} />
+      <ActionRow k="statusLongClickMiddle" title={t('statubar_long_tap_middle')} />
+      <ActionRow k="statusLongClickRight" title={t('statubar_long_tap_right')} />
 
       <ResetRow
         label={t('reset')}

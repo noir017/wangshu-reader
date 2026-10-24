@@ -138,15 +138,6 @@ export function SyncSection() {
       <PrefSwitch slice={syncSettings} k="syncManually" title={t('syncManually')} />
       <PrefSwitch slice={syncSettings} k="syncReadingBook" title={t('syncBooks')} />
       {st.syncReadingBook && <PrefSwitch slice={syncSettings} k="syncRecentList" title={t('syncRecent')} />}
-      <div className={s.sep} />
-      <Row title={t('syncDropbox')} subtitle={t('syncPlaceholder')} disabled />
-      <Field label={t('syncAppKey')}>
-        <TextField value={st.dropboxAppKey} onChange={(v) => syncSettings.set({ dropboxAppKey: v.trim() })} />
-      </Field>
-      <Row title={t('syncGdrive')} subtitle={t('syncPlaceholder')} disabled />
-      <Field label={t('syncClientId')}>
-        <TextField value={st.gdriveClientId} onChange={(v) => syncSettings.set({ gdriveClientId: v.trim() })} />
-      </Field>
     </>
   );
 }

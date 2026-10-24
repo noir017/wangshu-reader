@@ -40,7 +40,7 @@ class StaleError extends Error {}
 
 const COLOR_TEXT_KEYS = new Set(['fontColor', 'backgroundColor', 'useBackgroundImage', 'backgroundImage', 'fontShadow']);
 const COLOR_CSS_KEYS = new Set(['linkColor', 'linkColorNight', 'linkVisitedColor', 'linkVisitedColorNight', 'noteTextColor', 'noteBackColor', 'noteTextColorNight', 'noteBackColorNight', 'longTapImageFullScreen']);
-const IGNORE_TEXT_KEYS = new Set(['txtChapterSplit', 'keepOneLineWhenPaging', 'textEncode']);
+const IGNORE_TEXT_KEYS = new Set(['keepOneLineWhenPaging', 'textEncode']);
 
 function changedKeys<T extends object>(a: T, b: T): string[] {
   return (Object.keys(b) as Array<keyof T>).filter((k) => JSON.stringify(a[k]) !== JSON.stringify(b[k])).map(String);

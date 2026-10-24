@@ -1,4 +1,4 @@
-// 自定义阅读器工具栏（VIEW-004，ReaderBar）：20 个按钮勾选 + 排序 + 双行布局。
+// 自定义阅读器工具栏（VIEW-004，ReaderBar）：工具按钮勾选 + 排序 + 双行布局。
 import { ArrowDown, ArrowUp } from 'lucide-react';
 import { Button, Row, Sheet, Switch } from '@/ui';
 import { normalizeToolbar, uiSettings } from '../ui-settings';

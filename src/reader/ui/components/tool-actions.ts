@@ -12,7 +12,6 @@ import { openThemeLoader, openThemeSaver } from '../settings/ThemeDialogs';
 import { openSettings } from '../settings/open';
 import { SCROLL_MODES, startAutoScroll, stopAutoScroll } from '../autoscroll';
 import { dayNightThemes, loadTheme } from '../themes/theme-manager';
-import { leaveReader } from '../actions/host';
 import { adjustBrightness, setBrightness } from '../services/brightness-actions';
 import { applyScreenState, isLandscapeNow, nextScreenState, orientationSupported } from '../services/system';
 import { clampFontSize } from '../settings/options-data';
@@ -84,9 +83,6 @@ export function toolClick(id: number, host: ActionHost): void {
       break;
     case ToolButton.Options:
       host.optionsMenu();
-      break;
-    case ToolButton.Shutdown:
-      leaveReader();
       break;
     case ToolButton.DualPage:
       toggleDualPage();
@@ -181,7 +177,6 @@ export function toolLongPress(id: number, host: ActionHost, a: Anchor): void {
     case ToolButton.Tilt:
       openTiltDialog();
       return;
-    case ToolButton.Shutdown:
     case ToolButton.DualPage:
     case ToolButton.Customize:
       toolClick(id, host);
