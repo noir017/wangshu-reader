@@ -66,6 +66,11 @@ export interface ReaderEvents {
   key: { key: string; code: string; event: KeyboardEvent };
   /** 自动滚屏状态。paused=true：仍处于自动滚屏中、只是暂停了（此时 running=false，点击正文可恢复）；真正停止时 paused 为 false */
   autoScroll: { running: boolean; paused?: boolean; speed: number };
+  /**
+   * 阅读区背景（纹理/图片/纯色，固定版式是页边色）定下或变了：按 style.background = css、再 style.backgroundColor = color 的顺序画。
+   * 阅读页用它铺满整屏（状态栏那条、页眉页脚），引擎自己的根节点由阅读页设成透明，整屏是同一块背景、没有接缝
+   */
+  backdrop: { css: string; color: string };
   /** 到达书末再往后翻 */
   endOfBook: void;
   error: Error;

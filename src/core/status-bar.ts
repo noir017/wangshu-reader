@@ -1,5 +1,6 @@
 // Android app：系统状态栏跟页面顶边同色。不让各页面自己报颜色（书架标题栏、多选栏、夜间、阅读页纸色、菜单栏、
-// 对话框遮罩各不相同），而是取屏幕顶边中点实际画出来的背景色（自上而下叠加半透明层），变了才通知原生。
+// 对话框遮罩各不相同），而是取屏幕顶边中点的背景色（自上而下叠加半透明层），变了就通知原生。
+// 这只是估计（读不出纹理、图片的颜色）：原生收到通知后会对屏幕顶边实际画出来的像素取色，取不到才用这里的颜色。
 import { nativeHost, setHostStatusBar } from './host';
 
 type Rgba = [number, number, number, number];
@@ -39,16 +40,21 @@ export function isLightColor([r, g, b]: [number, number, number]): boolean {
   return r * 0.299 + g * 0.587 + b * 0.114 >= 128;
 }
 
-function topColor(): [number, number, number] {
+/** 顶边中点的颜色估计，和各层背景的指纹（换了纹理、背景图而底色没变时也算变化，原生要重新取色） */
+function topColor(): { rgb: [number, number, number]; sig: string } {
   // elementsFromPoint 自上而下列出该点下的所有元素（含祖先）；pointer-events:none 的层（亮度遮罩等）不在其中
   const layers: Rgba[] = [];
+  let sig = '';
   for (const el of document.elementsFromPoint(window.innerWidth / 2, 0)) {
-    const c = parseCssColor(getComputedStyle(el).backgroundColor);
+    const cs = getComputedStyle(el);
+    if (cs.backgroundImage !== 'none') sig += cs.backgroundImage + '|';
+    const c = parseCssColor(cs.backgroundColor);
     if (!c || c[3] <= 0) continue;
     layers.push(c);
+    sig += cs.backgroundColor + '|';
     if (c[3] >= 1) break;
   }
-  return compositeLayers(layers);
+  return { rgb: compositeLayers(layers), sig };
 }
 
 export function startStatusBarSync(): void {
@@ -59,11 +65,10 @@ export function startStatusBarSync(): void {
   let timer = 0;
   const run = () => {
     timer = 0;
-    const rgb = topColor();
-    const hex = toHex(rgb);
-    if (hex === last) return;
-    last = hex;
-    setHostStatusBar(hex, isLightColor(rgb));
+    const { rgb, sig } = topColor();
+    if (sig === last) return;
+    last = sig;
+    setHostStatusBar(toHex(rgb), isLightColor(rgb));
   };
   // 节流：翻页动画、自动滚屏期间 DOM 一直在变，100ms 最多取一次色
   const schedule = () => {

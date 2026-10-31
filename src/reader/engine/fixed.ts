@@ -296,10 +296,18 @@ export class FixedEngine implements ReaderController, FlipHost {
     if (a.pdfBackColor !== b.pdfBackColor || a.cbzBackColor !== b.cbzBackColor || a.pdfTheme !== b.pdfTheme || a.cbzSmooth !== b.cbzSmooth) this.applyColors();
   }
 
+  /** 页边色就是阅读区背景：阅读页拿去铺满整屏（backdrop 事件） */
+  private paintMargin(): void {
+    const c = this.marginColor();
+    if (!this.root) return;
+    this.root.style.background = c;
+    this.emit('backdrop', { css: c, color: c });
+  }
+
   /** 页边色、夜间反色、平滑缩放：只改样式，不重排 */
   applyColors(): void {
     if (!this.root) return;
-    this.root.style.background = this.marginColor();
+    this.paintMargin();
     const night = this.night;
     const smooth = fixedSettings.get().cbzSmooth;
     for (const v of this.views.values()) this.styleView(v, night, smooth);
@@ -403,7 +411,7 @@ export class FixedEngine implements ReaderController, FlipHost {
   async rebuild(page: number): Promise<void> {
     if (this.destroyed || !this.root) return;
     this.animator.cancel();
-    this.root.style.background = this.marginColor();
+    this.paintMargin();
     // 先量首页，让「自动」视图判断得到长条漫画
     await this.sizeOf(0);
     if (this.destroyed) return;

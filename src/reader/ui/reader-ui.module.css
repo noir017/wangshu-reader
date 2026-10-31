@@ -32,6 +32,11 @@
   min-height: 0;
   overflow: hidden;
 }
+/* 阅读背景由根节点铺满整屏（useReaderBackdrop），引擎根节点透明，免得正文区和状态栏那条、页眉页脚接不上。
+   引擎翻页动画取的是它行内样式里的背景，不受这条影响 */
+.host :global(.mr-reader) {
+  background: transparent !important;
+}
 
 /* 载入/错误占位 */
 .center {

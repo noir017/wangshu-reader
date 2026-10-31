@@ -70,6 +70,8 @@ export class Engine implements ReaderController {
   private lhByFont = new Map<string, number>();
   private snap = this.snapshot();
   private refreshTimer?: ReturnType<typeof setTimeout>;
+  /** 背景解析是异步的（用户图片要读库）：只认最后一次 */
+  private bgSeq = 0;
   private ro?: ResizeObserver;
   private unsubs: Array<() => void> = [];
   private relocateTimer?: ReturnType<typeof setTimeout>;
@@ -284,10 +286,12 @@ export class Engine implements ReaderController {
 
   private async applyBackground(): Promise<void> {
     const t = textSettings.get();
+    const seq = ++this.bgSeq;
     const css = await resolveBackground({ useImage: t.useBackgroundImage, image: t.backgroundImage, color: t.backgroundColor });
-    if (this.root && !this.destroyed) {
+    if (this.root && !this.destroyed && seq === this.bgSeq) {
       this.root.style.background = css;
       this.root.style.backgroundColor = t.backgroundColor;
+      this.emit('backdrop', { css, color: t.backgroundColor });
     }
   }
 

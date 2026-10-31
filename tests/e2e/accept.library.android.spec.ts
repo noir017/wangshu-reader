@@ -80,6 +80,41 @@ test('Android 壳：状态栏取色与阅读页全屏', async ({ browser }) => {
   await ctx.close();
 });
 
+test('Android 壳：夜间纹理主题下状态栏那条、页脚和正文是同一块背景', async ({ browser }) => {
+  const shape: Shape = { kind: 'hosted', token: false, srv };
+  const ctx = await browser.newContext({ viewport: { width: 412, height: 915 }, locale: 'zh-CN' });
+  // 内置「Night Theme」：夜间磨砂纹理（自带均色 #3A3A3A）+ 主题底色纯黑，以前正文是黑底、状态栏那条和页脚是灰底
+  const night = { useBackgroundImage: true, backgroundImage: 'tex:night161', backgroundColor: '#000000', fontColor: '#CCCCCC' };
+  const seed = seedSettings(shape, { 'library.shelf': { firstShelfShown: true }, 'reader.text': night, 'reader.theme': { lastTheme: 'Night Theme', nightMode: true } });
+  await ctx.addInitScript((s) => localStorage.setItem('mr.settings.v1', s), JSON.stringify(seed));
+  await ctx.addInitScript(FAKE_HOST);
+  const page = await ctx.newPage();
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.goto(appUrl(shape, '#/'));
+  await importViaDialog(page, [{ name: 'night.epub', mimeType: 'application/epub+zip', buffer: await makeEpub('夜间背景样书', '测试', { paragraphs: 40 }) }]);
+  await page.locator('[role=dialog] [class*=groupRow]').first().click();
+  await expect(page.locator('iframe[title^="section-"]').first()).toBeAttached({ timeout: 20_000 });
+
+  // 整屏背景画在阅读页根节点上，和引擎算出来的一模一样；引擎根节点透明，不另画一层
+  const bgs = () =>
+    page.evaluate(() => {
+      const root = document.querySelector<HTMLElement>('[data-night]')!;
+      const eng = document.querySelector<HTMLElement>('.mr-reader')!;
+      const ec = getComputedStyle(eng);
+      return { root: root.style.background, engine: eng.style.background, enginePaints: `${ec.backgroundColor} ${ec.backgroundImage}` };
+    });
+  await expect.poll(async () => (await bgs()).engine).toContain('svg');
+  const b = await bgs();
+  expect(b.root).toBe(b.engine);
+  expect(b.enginePaints).toBe('rgba(0, 0, 0, 0) none');
+  expect(await bgHex(page, '[data-night]')).toBe('#000000');
+  // 顶部那条就是根节点的留白：状态栏取色是纯黑、配浅色图标
+  await expect.poll(() => lastMsg(page, 'statusBar')).toEqual({ type: 'statusBar', color: '#000000', light: false });
+  expect(errors).toEqual([]);
+  await ctx.close();
+});
+
 test('Android 壳：「打开方式」选了望舒，导入后直接打开', async ({ browser }) => {
   const shape: Shape = { kind: 'hosted', token: false, srv };
   const ctx = await browser.newContext({ viewport: { width: 412, height: 915 }, locale: 'zh-CN' });
