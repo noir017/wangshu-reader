@@ -1,5 +1,6 @@
 // Android app 的系统栏：在 Chromium 里假装是 Android 壳（注入 __WANGSHU_HOST__、截获发给原生的消息），检查
 // 书架页状态栏取色；阅读页铺满全屏、顶部按状态栏高度留一条；菜单栏收起时隐藏状态栏和导航栏、呼出时显示状态栏且与菜单栏同色。
+// 「打开方式」选了望舒：原生发来文件地址，导入后直接进阅读页。
 import { expect, test, type Page } from '@playwright/test';
 import { appUrl, importViaDialog, makeEpub, seedSettings, startServer, type Shape, type Srv } from './accept.library.helpers';
 
@@ -14,10 +15,14 @@ test.afterAll(async () => {
   await srv?.stop();
 });
 
+// addEventListener 收原生发给页面的消息：存下监听函数，测试里直接调它
 const FAKE_HOST = `(() => {
   window.__WANGSHU_HOST__ = { platform: 'android', mode: 'remote', statusBarHeight: 30 };
   window.__hostMsgs = [];
-  window.WangshuAndroid = { postMessage: (m) => window.__hostMsgs.push(JSON.parse(m)) };
+  window.WangshuAndroid = {
+    postMessage: (m) => window.__hostMsgs.push(JSON.parse(m)),
+    addEventListener: (type, fn) => { window.__hostListener = fn; },
+  };
 })();`;
 
 type HostMsg = { type: string; [k: string]: unknown };
@@ -71,6 +76,32 @@ test('Android 壳：状态栏取色与阅读页全屏', async ({ browser }) => {
   // 返回书架：退出阅读页布局
   await page.getByRole('button', { name: '返回', exact: true }).click();
   await expect.poll(() => lastMsg(page, 'reader')).toEqual({ type: 'reader', on: false, hideStatus: false, hideNav: false });
+  expect(errors).toEqual([]);
+  await ctx.close();
+});
+
+test('Android 壳：「打开方式」选了望舒，导入后直接打开', async ({ browser }) => {
+  const shape: Shape = { kind: 'hosted', token: false, srv };
+  const ctx = await browser.newContext({ viewport: { width: 412, height: 915 }, locale: 'zh-CN' });
+  await ctx.addInitScript((s) => localStorage.setItem('mr.settings.v1', s), JSON.stringify(seedSettings(shape, { 'library.shelf': { firstShelfShown: true } })));
+  await ctx.addInitScript(FAKE_HOST);
+  const page = await ctx.newPage();
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  // 原生把收到的文件挂在页面同源的 /__opened/<编号> 上，文件名在 X-File-Name
+  const epub = await makeEpub('打开方式样书', '测试');
+  await page.route('**/__opened/1', (route) =>
+    route.fulfill({ contentType: 'application/epub+zip', headers: { 'X-File-Name': encodeURIComponent('打开方式样书.epub') }, body: epub }),
+  );
+  await page.goto(appUrl(shape, '#/'));
+
+  // 页面起来后才告诉原生可以投递
+  await expect.poll(() => lastMsg(page, 'ready')).toEqual({ type: 'ready' });
+  await page.evaluate(() => (window as any).__hostListener({ data: JSON.stringify({ type: 'openFiles', urls: [`${location.origin}/__opened/1`] }) }));
+  await expect(page.getByText(/已导入 1 本/).first()).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('iframe[title^="section-"]').first()).toBeAttached({ timeout: 20_000 });
+  // 直接进阅读页，没有新书列表盖在上面
+  await expect(page.getByText(/新导入的 \d+ 本书/)).toHaveCount(0);
   expect(errors).toEqual([]);
   await ctx.close();
 });
