@@ -9,6 +9,8 @@ WebView 壳 + 内置服务端。前端（`npm run build` 的产物）打进 APK�
 
 两种模式共用同一个页面源，书架、进度、标注不会因为切换模式而丢。
 
+文件管理器等的「打开方式」里有望舒：选了就把书导入书架并直接打开（同 PWA 的「用本应用打开」）。原生把收到的 content uri 挂在 `https://localhost/__opened/<编号>`，页面取来导入。
+
 ## 构建
 
 需要 Node 22+、JDK 17+、Android SDK（platform 34）、`curl` `dpkg-deb` `readelf` `python3` `zip`。在仓库根目录：
@@ -29,4 +31,4 @@ android/scripts/build.sh            # 产物：android/app/build/outputs/apk/deb
 - 只支持 arm64 手机。
 - 内置服务端没有 7z / ddjvu / espeak-ng：CHM、DJVU、压缩包浏览不可用，朗读只有 Edge 在线语音。封面缩略图不缩放。
 - 服务端书库目录是 app 专属目录 `Android/data/io.github.noir017.wangshu/files/books`。
-- 还没接原生能力：导出/备份下载、分享、音量键翻页、系统朗读、后台朗读、从别的 app「用望舒打开」。
+- 还没接原生能力：导出/备份下载、分享、音量键翻页、系统朗读、后台朗读。

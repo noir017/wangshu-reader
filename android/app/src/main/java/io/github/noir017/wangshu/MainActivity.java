@@ -3,15 +3,19 @@ package io.github.noir017.wangshu;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
+import android.content.ContentResolver;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
+import android.database.Cursor;
+import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Message;
+import android.provider.OpenableColumns;
 import android.util.Log;
 import android.view.DisplayCutout;
 import android.view.Gravity;
@@ -21,6 +25,7 @@ import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.view.WindowManager;
 import android.webkit.ConsoleMessage;
+import android.webkit.MimeTypeMap;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -32,16 +37,24 @@ import android.widget.FrameLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.webkit.JavaScriptReplyProxy;
 import androidx.webkit.ScriptHandler;
 import androidx.webkit.WebViewAssetLoader;
 import androidx.webkit.WebViewCompat;
 import androidx.webkit.WebViewFeature;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -56,6 +69,8 @@ public class MainActivity extends Activity {
     private static final String ORIGIN = "https://localhost";
     private static final Set<String> ORIGINS = Collections.singleton(ORIGIN);
     private static final int REQ_FILE = 1;
+    /** 「用望舒打开」收到的文件挂在 ORIGIN + OPENED + 编号 上，页面 fetch 时现读 content uri */
+    private static final String OPENED = "/__opened/";
 
     /** 进程级：Activity 重建（比如从后台回来）不重启服务端 */
     private static LocalServer server;
@@ -75,6 +90,13 @@ public class MainActivity extends Activity {
     private boolean reader, hideStatus, hideNav;
     /** 主题里的导航栏颜色，离开阅读页时还原 */
     private int navColor;
+    /** 编号 → 别的 app 发来的 uri；shouldInterceptRequest 在 WebView 的后台线程读 */
+    private final Map<String, Uri> opened = new ConcurrentHashMap<>();
+    private int openedSeq;
+    /** 还没交给页面的文件地址：页面发来 ready 才交，页面没起来时先攒着 */
+    private final List<String> pendingOpen = new ArrayList<>();
+    /** 当前页面的回信通道，页面重新加载就作废 */
+    private JavaScriptReplyProxy page;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -123,6 +145,72 @@ public class MainActivity extends Activity {
         }
         setupWebView();
         boot();
+        // 重建或从最近任务里恢复时 getIntent() 还是当初那个 VIEW，不能再打开一遍
+        if (savedInstanceState == null && (getIntent().getFlags() & Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) == 0) takeOpened(getIntent());
+    }
+
+    /** singleTask：app 已在运行时，文件管理器发来的 VIEW 走这里 */
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        takeOpened(intent);
+    }
+
+    /** 「用望舒打开」：记下 uri，交给页面导入后打开 */
+    private void takeOpened(Intent intent) {
+        if (!Intent.ACTION_VIEW.equals(intent.getAction()) || intent.getData() == null) return;
+        String id = String.valueOf(++openedSeq);
+        opened.put(id, intent.getData());
+        pendingOpen.add(ORIGIN + OPENED + id);
+        deliverOpened();
+    }
+
+    private void deliverOpened() {
+        if (page == null || pendingOpen.isEmpty()) return;
+        try {
+            page.postMessage(new JSONObject().put("type", "openFiles").put("urls", new JSONArray(pendingOpen)).toString());
+        } catch (JSONException e) {
+            throw new IllegalStateException(e);
+        }
+        pendingOpen.clear();
+    }
+
+    /** 页面 fetch 收到的文件：现读 content uri；文件名放在 X-File-Name（前端按扩展名认格式） */
+    private WebResourceResponse openedFile(String id) {
+        Uri uri = id == null ? null : opened.get(id);
+        if (uri != null) {
+            try {
+                ContentResolver cr = getContentResolver();
+                String type = cr.getType(uri);
+                String name = openedName(uri, type);
+                InputStream in = cr.openInputStream(uri);
+                if (in != null) {
+                    return new WebResourceResponse(type != null ? type : "application/octet-stream", null, 200, "OK",
+                            Collections.singletonMap("X-File-Name", Uri.encode(name)), in);
+                }
+            } catch (IOException | RuntimeException e) {
+                // 这里在 WebView 的 IO 线程，异常漏出去整个 app 就崩了
+                Log.w(TAG, "open " + uri, e);
+            }
+        }
+        return new WebResourceResponse("text/plain", "utf-8", 404, "Not Found", null, null);
+    }
+
+    private String openedName(Uri uri, String type) {
+        String name = null;
+        try (Cursor c = getContentResolver().query(uri, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null)) {
+            if (c != null && c.moveToFirst()) name = c.getString(0);
+        } catch (RuntimeException e) {
+            // 有的 provider 不支持查询，退回路径
+        }
+        if (name == null || name.isEmpty()) name = uri.getLastPathSegment();
+        if (name == null) name = "";
+        name = name.substring(name.lastIndexOf('/') + 1);
+        if (name.isEmpty()) name = "book";
+        // 没扩展名时按 MIME 补一个，前端才认得出格式
+        String ext = type == null ? null : MimeTypeMap.getSingleton().getExtensionFromMimeType(type);
+        if (name.indexOf('.') < 0 && ext != null) name += "." + ext;
+        return name;
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -149,7 +237,17 @@ public class MainActivity extends Activity {
         web.setWebViewClient(new WebViewClient() {
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest req) {
-                return loader.shouldInterceptRequest(req.getUrl());
+                Uri u = req.getUrl();
+                String path = u.getPath();
+                if ("https".equals(u.getScheme()) && "localhost".equals(u.getHost()) && path != null && path.startsWith(OPENED)) {
+                    return openedFile(u.getLastPathSegment());
+                }
+                return loader.shouldInterceptRequest(u);
+            }
+
+            @Override
+            public void onPageStarted(WebView view, String url, Bitmap favicon) {
+                page = null;
             }
 
             @Override
@@ -207,6 +305,10 @@ public class MainActivity extends Activity {
             try {
                 JSONObject msg = new JSONObject(message.getData());
                 switch (msg.optString("type")) {
+                    case "ready":
+                        page = reply;
+                        deliverOpened();
+                        break;
                     case "setMode": {
                         String mode = "remote".equals(msg.optString("mode")) ? "remote" : "local";
                         if (!mode.equals(mode())) {

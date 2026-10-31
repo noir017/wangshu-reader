@@ -78,8 +78,8 @@ export async function runWithProgress<T>(
   }
 }
 
-/** 导入并给出进度、取消、结果提示；有新书时弹新书列表 */
-export async function importWithUi(items: ImportItem[], opts: ImportOptions = {}): Promise<ImportResult> {
+/** 导入并给出进度、取消、结果提示；有新书时弹新书列表（showNewBooks: false = 调用方随后直接打开书，不弹） */
+export async function importWithUi(items: ImportItem[], opts: ImportOptions & { showNewBooks?: boolean } = {}): Promise<ImportResult> {
   if (!items.length) return { added: [], existing: [], failed: [] };
   void navigator.storage?.persist?.();
   const abort = new AbortController();
@@ -103,7 +103,7 @@ export async function importWithUi(items: ImportItem[], opts: ImportOptions = {}
     clearTimeout(timer);
     close();
   }
-  summarize(res, abort.signal.aborted);
+  summarize(res, abort.signal.aborted, opts.showNewBooks !== false);
   // 类型不受支持的文件：问一句是否以纯文本模式打开（LIB-035，原「该文件类型不受支持，是否以纯文本模式打开？」）
   const unsupported = items.filter((it) => res.failed.some((f) => f.unsupported && f.name === it.file.name));
   if (unsupported.length && !abort.signal.aborted && (await confirmDialog(t('importAsTextAsk', { n: unsupported.length }), { okText: t('importAsText') }))) {

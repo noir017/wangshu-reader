@@ -21,6 +21,119 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- 「打开方式」里列出望舒：文件管理器等用 ACTION_VIEW 发来的书。格式同 PWA 的 file_handlers（public/manifest.webmanifest） -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:mimeType="application/epub+zip" />
+                <data android:mimeType="application/pdf" />
+                <data android:mimeType="text/plain" />
+                <data android:mimeType="application/x-mobipocket-ebook" />
+                <data android:mimeType="application/vnd.amazon.ebook" />
+                <data android:mimeType="application/vnd.amazon.mobi8-ebook" />
+                <data android:mimeType="application/x-fictionbook+xml" />
+                <data android:mimeType="application/vnd.comicbook+zip" />
+                <data android:mimeType="application/x-cbz" />
+                <data android:mimeType="application/vnd.comicbook-rar" />
+                <data android:mimeType="application/x-cbr" />
+                <data android:mimeType="application/x-cb7" />
+                <data android:mimeType="application/vnd.ms-htmlhelp" />
+                <data android:mimeType="application/x-chm" />
+                <data android:mimeType="image/vnd.djvu" />
+                <data android:mimeType="image/x-djvu" />
+                <data android:mimeType="application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
+                <data android:mimeType="application/vnd.oasis.opendocument.text" />
+                <data android:mimeType="application/rtf" />
+                <data android:mimeType="text/rtf" />
+                <data android:mimeType="text/markdown" />
+                <data android:mimeType="text/x-markdown" />
+                <data android:mimeType="text/html" />
+                <data android:mimeType="application/xhtml+xml" />
+                <data android:mimeType="application/zip" />
+            </intent-filter>
+
+            <!-- 不少文件管理器认不出 mobi、azw3、fb2、umd 等，发来的是 application/octet-stream：按路径里的扩展名认。
+                 pathSuffix 是 Android 12 才有的；更早的只有 pathPattern，它的 .* 不回溯、扫到第一个点就停，
+                 路径里扩展名前每多一个点（包名、带点的文件名）就得多写一条 -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:host="*" />
+                <data android:mimeType="*/*" />
+                <data android:pathSuffix=".epub" />
+                <data android:pathPattern=".*\\.epub" />
+                <data android:pathPattern=".*\\..*\\.epub" />
+                <data android:pathPattern=".*\\..*\\..*\\.epub" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.epub" />
+                <data android:pathSuffix=".mobi" />
+                <data android:pathPattern=".*\\.mobi" />
+                <data android:pathPattern=".*\\..*\\.mobi" />
+                <data android:pathPattern=".*\\..*\\..*\\.mobi" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.mobi" />
+                <data android:pathSuffix=".azw" />
+                <data android:pathPattern=".*\\.azw" />
+                <data android:pathPattern=".*\\..*\\.azw" />
+                <data android:pathPattern=".*\\..*\\..*\\.azw" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.azw" />
+                <data android:pathSuffix=".azw3" />
+                <data android:pathPattern=".*\\.azw3" />
+                <data android:pathPattern=".*\\..*\\.azw3" />
+                <data android:pathPattern=".*\\..*\\..*\\.azw3" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.azw3" />
+                <data android:pathSuffix=".prc" />
+                <data android:pathPattern=".*\\.prc" />
+                <data android:pathPattern=".*\\..*\\.prc" />
+                <data android:pathPattern=".*\\..*\\..*\\.prc" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.prc" />
+                <data android:pathSuffix=".fb2" />
+                <data android:pathPattern=".*\\.fb2" />
+                <data android:pathPattern=".*\\..*\\.fb2" />
+                <data android:pathPattern=".*\\..*\\..*\\.fb2" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.fb2" />
+                <data android:pathSuffix=".umd" />
+                <data android:pathPattern=".*\\.umd" />
+                <data android:pathPattern=".*\\..*\\.umd" />
+                <data android:pathPattern=".*\\..*\\..*\\.umd" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.umd" />
+                <data android:pathSuffix=".cbz" />
+                <data android:pathPattern=".*\\.cbz" />
+                <data android:pathPattern=".*\\..*\\.cbz" />
+                <data android:pathPattern=".*\\..*\\..*\\.cbz" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.cbz" />
+                <data android:pathSuffix=".cbr" />
+                <data android:pathPattern=".*\\.cbr" />
+                <data android:pathPattern=".*\\..*\\.cbr" />
+                <data android:pathPattern=".*\\..*\\..*\\.cbr" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.cbr" />
+                <data android:pathSuffix=".cb7" />
+                <data android:pathPattern=".*\\.cb7" />
+                <data android:pathPattern=".*\\..*\\.cb7" />
+                <data android:pathPattern=".*\\..*\\..*\\.cb7" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.cb7" />
+                <data android:pathSuffix=".chm" />
+                <data android:pathPattern=".*\\.chm" />
+                <data android:pathPattern=".*\\..*\\.chm" />
+                <data android:pathPattern=".*\\..*\\..*\\.chm" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.chm" />
+                <data android:pathSuffix=".djvu" />
+                <data android:pathPattern=".*\\.djvu" />
+                <data android:pathPattern=".*\\..*\\.djvu" />
+                <data android:pathPattern=".*\\..*\\..*\\.djvu" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.djvu" />
+                <data android:pathSuffix=".djv" />
+                <data android:pathPattern=".*\\.djv" />
+                <data android:pathPattern=".*\\..*\\.djv" />
+                <data android:pathPattern=".*\\..*\\..*\\.djv" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.djv" />
+                <data android:pathSuffix=".md" />
+                <data android:pathPattern=".*\\.md" />
+                <data android:pathPattern=".*\\..*\\.md" />
+                <data android:pathPattern=".*\\..*\\..*\\.md" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.md" />
+            </intent-filter>
         </activity>
     </application>
 </manifest>

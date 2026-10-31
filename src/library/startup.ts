@@ -1,5 +1,6 @@
 // 启动时的一次性动作：自动打开上次阅读的书（openLastFile）、PWA 文件打开（file_handlers/launchQueue，MISC-008）、
-// 链接导入（?open=<url>，LIB-036/NET-008）、后台服务（云同步、Readwise 自动分享）。
+// Android app 的「用望舒打开」、链接导入（?open=<url>，LIB-036/NET-008）、后台服务（云同步、Readwise 自动分享）。
+import { onHostOpenFiles } from '@/core/host';
 import { screenSettings } from '@/reader/settings';
 import { getHistory } from '@/storage/db';
 import { startReadwiseAutoShare } from '@/storage/readwise';
@@ -17,6 +18,29 @@ interface LaunchParams {
   files: { getFile(): Promise<File> }[];
 }
 
+/** 别的地方「用望舒打开」的文件：导入，然后直接打开第一本（不弹新书列表，免得盖在阅读页上） */
+async function openLaunched(files: File[]): Promise<void> {
+  const res = await importWithUi(files.map((file) => ({ file })), { showNewBooks: false });
+  const first = res.added[0] ?? res.existing[0];
+  if (first) goRead(first.id);
+}
+
+/** Android 原生挂出来的文件，读不到的（文件已删、授权失效）记一笔失败 */
+async function fetchHostFiles(urls: string[]): Promise<File[]> {
+  const files: File[] = [];
+  for (const url of urls) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(String(res.status));
+      const name = decodeURIComponent(res.headers.get('X-File-Name') ?? '') || 'book';
+      files.push(new File([await res.blob()], name, { type: res.headers.get('Content-Type') ?? '' }));
+    } catch {
+      toast(t('importFailedN', { n: 1 }));
+    }
+  }
+  return files;
+}
+
 export function runStartup(initialRoute: string): void {
   if (done || typeof window === 'undefined') return;
   done = true;
@@ -30,11 +54,10 @@ export function runStartup(initialRoute: string): void {
   const lq = (window as unknown as { launchQueue?: { setConsumer(fn: (p: LaunchParams) => void): void } }).launchQueue;
   lq?.setConsumer(async (p) => {
     if (!p.files?.length) return;
-    const files = await Promise.all(p.files.map((h) => h.getFile()));
-    const res = await importWithUi(files.map((file) => ({ file })));
-    const first = res.added[0] ?? res.existing[0];
-    if (first) goRead(first.id);
+    await openLaunched(await Promise.all(p.files.map((h) => h.getFile())));
   });
+  // Android app：文件管理器等「打开方式」选了望舒
+  onHostOpenFiles((urls) => void fetchHostFiles(urls).then(openLaunched));
 
   // ?open=<链接>：交给下载队列（经服务端代理）
   const q = new URLSearchParams(window.location.search);
