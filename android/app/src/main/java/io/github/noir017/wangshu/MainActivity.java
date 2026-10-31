@@ -10,15 +10,19 @@ import android.content.pm.ApplicationInfo;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.graphics.Rect;
 import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.Message;
 import android.provider.OpenableColumns;
 import android.util.Log;
 import android.view.DisplayCutout;
 import android.view.Gravity;
+import android.view.PixelCopy;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowInsets;
@@ -51,6 +55,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -83,9 +88,15 @@ public class MainActivity extends Activity {
     private ScriptHandler hostScript;
     private boolean loaded;
     private ValueCallback<Uri[]> fileCallback;
-    /** 状态栏颜色由前端取页面顶边的颜色发来 */
+    /** 状态栏颜色：页面一变就对它顶边实际画出来的像素取色（sampleTop）；前端发来的估计色只在取不到时用 */
     private int barColor = Color.WHITE;
     private boolean barLight = true;
+    private int hintColor = Color.WHITE;
+    private boolean hintLight = true;
+    private final Handler ui = new Handler(Looper.getMainLooper());
+    private final Runnable sampler = this::sampleTop;
+    /** 注入给页面的状态栏高度（CSS px）：阅读页顶部按它留出那一条 */
+    private double statusCss;
     /** 阅读页：铺满全屏（顶部那条由页面自己留），状态栏透明；hideStatus / hideNav 由前端按全屏设置和菜单栏显隐发来 */
     private boolean reader, hideStatus, hideNav;
     /** 主题里的导航栏颜色，离开阅读页时还原 */
@@ -318,15 +329,16 @@ public class MainActivity extends Activity {
                         break;
                     }
                     case "statusBar":
-                        barColor = Color.parseColor(msg.optString("color"));
-                        barLight = msg.optBoolean("light", true);
-                        applySystemBars();
+                        hintColor = Color.parseColor(msg.optString("color"));
+                        hintLight = msg.optBoolean("light", true);
+                        scheduleSample();
                         break;
                     case "reader":
                         reader = msg.optBoolean("on");
                         hideStatus = reader && msg.optBoolean("hideStatus");
                         hideNav = reader && msg.optBoolean("hideNav");
                         applySystemBars();
+                        scheduleSample();
                         break;
                     default:
                         break;
@@ -373,7 +385,8 @@ public class MainActivity extends Activity {
         try {
             host.put("platform", "android");
             host.put("mode", mode);
-            host.put("statusBarHeight", statusBarCssHeight());
+            statusCss = statusBarCssHeight();
+            host.put("statusBarHeight", statusCss);
             if (st != null) {
                 JSONObject local = new JSONObject();
                 local.put("url", st.url);
@@ -452,11 +465,77 @@ public class MainActivity extends Activity {
         root.requestApplyInsets();
     }
 
-    /** 旧系统弹过对话框、键盘后会清掉沉浸标志，回到焦点时重设 */
+    /** 页面刚变过：等它画到屏幕上再取色；背景图解码、过渡动画收尾要晚一点才画完，再取一次 */
+    private void scheduleSample() {
+        ui.removeCallbacks(sampler);
+        ui.postDelayed(sampler, 32);
+        ui.postDelayed(sampler, 400);
+    }
+
+    /**
+     * 对 WebView 顶边实际画出来的像素取色：阅读页铺满全屏，取状态栏底下那一条；其余页面在状态栏下方，取最上面几行。
+     * 纹理、背景图、对话框遮罩都算在内（前端只读得到 CSS 底色）。取不到（窗口还没画、被别的窗口挡着）就用前端的估计色
+     */
+    private void sampleTop() {
+        if (isDestroyed() || splash.getVisibility() == View.VISIBLE || !web.isAttachedToWindow()) return;
+        float density = getResources().getDisplayMetrics().density;
+        int w = web.getWidth();
+        int h = Math.min(web.getHeight(), reader ? (int) Math.round(statusCss * density) : 3);
+        if (w <= 0 || h <= 0) {
+            setBar(hintColor, hintLight);
+            return;
+        }
+        int[] at = new int[2];
+        web.getLocationInWindow(at);
+        // 缩小拷贝：纯色缩完还是原色，纹理、图片缩小正好先做了平均
+        Bitmap bmp = Bitmap.createBitmap(Math.min(w, 120), Math.min(h, 12), Bitmap.Config.ARGB_8888);
+        try {
+            PixelCopy.request(getWindow(), new Rect(at[0], at[1], at[0] + w, at[1] + h), bmp, result -> {
+                if (result == PixelCopy.SUCCESS && !isDestroyed()) {
+                    int c = dominantColor(bmp);
+                    setBar(c, Color.red(c) * 0.299 + Color.green(c) * 0.587 + Color.blue(c) * 0.114 >= 128);
+                } else {
+                    setBar(hintColor, hintLight);
+                }
+                bmp.recycle();
+            }, ui);
+        } catch (IllegalArgumentException e) {
+            // 窗口没有可拷贝的 surface
+            bmp.recycle();
+            setBar(hintColor, hintLight);
+        }
+    }
+
+    /** 一半以上像素同色就取它（纯色标题栏原样还原），否则取平均（纹理、图片） */
+    private static int dominantColor(Bitmap b) {
+        int n = b.getWidth() * b.getHeight();
+        int[] px = new int[n];
+        b.getPixels(px, 0, b.getWidth(), 0, 0, b.getWidth(), b.getHeight());
+        Map<Integer, Integer> count = new HashMap<>();
+        long r = 0, g = 0, bl = 0;
+        for (int p : px) {
+            r += Color.red(p);
+            g += Color.green(p);
+            bl += Color.blue(p);
+            count.merge(p | 0xff000000, 1, Integer::sum);
+        }
+        for (Map.Entry<Integer, Integer> e : count.entrySet()) if (e.getValue() * 2 > n) return e.getKey();
+        return Color.rgb((int) (r / n), (int) (g / n), (int) (bl / n));
+    }
+
+    private void setBar(int color, boolean light) {
+        if (color == barColor && light == barLight) return;
+        barColor = color;
+        barLight = light;
+        applySystemBars();
+    }
+
+    /** 旧系统弹过对话框、键盘后会清掉沉浸标志，回到焦点时重设；离开期间页面可能变了（定时换主题等），重新取色 */
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
         if (hasFocus && reader) applySystemBars();
+        if (hasFocus) scheduleSample();
     }
 
     private void openExternal(Uri u) {
@@ -495,6 +574,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        ui.removeCallbacks(sampler);
         if (isFinishing()) bg.execute(server::stop);
         if (web != null) web.destroy();
         super.onDestroy();

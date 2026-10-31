@@ -22,7 +22,7 @@ import { SpeedRead } from './speedread/SpeedRead';
 import { ClickTip } from './settings/ClickTip';
 import { closeSettings } from './settings/open';
 import { stopAutoScroll } from './autoscroll';
-import { useUiNightMode, useReaderBackground } from './hooks/theme-style';
+import { useUiNightMode, useReaderBackdrop } from './hooks/theme-style';
 import { usePositionSaving, useReadingStats } from './hooks/session-persist';
 import { useFontCheck, useInputBindings, useLocationState, useMotion, useSystemEffects, useThemeAutomation } from './hooks/session-system';
 import { ArchiveChoiceNeededError, BookNotFoundError, PasswordNeededError, ServerNeededError, loadBook as realLoadBook, type LoadedBook } from './session/load';
@@ -56,12 +56,12 @@ export function ReaderPage({ bookId, deps }: { bookId: string; deps?: Partial<Re
   const [entry, setEntry] = useState<string | undefined>(undefined);
   /** 用户在密码框里勾了「保存密码」：打开成功后才写入 */
   const savePw = useRef(false);
+  const rootRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const hostRef = useRef<HTMLDivElement>(null);
   const host = useMemo(() => createActionHost(), []);
 
   const night = useUiNightMode();
-  const bg = useReaderBackground();
   const fontColor = textSettings.use((x) => x.fontColor);
   const statusTop = statusSettings.use((x) => x.statusBarOnTop);
   const panel = useReaderUi((x) => x.panel);
@@ -221,11 +221,12 @@ export function ReaderPage({ bookId, deps }: { bookId: string; deps?: Partial<Re
   useFontCheck(session);
   useThemeAutomation(session);
   useMotion(session, host);
+  useReaderBackdrop(rootRef, session?.controller);
 
 
   return (
     <HostContext.Provider value={host}>
-      <div className={s.root} data-night={night} style={{ ...bg, ['--reader-fg' as string]: fontColor }}>
+      <div ref={rootRef} className={s.root} data-night={night} style={{ ['--reader-fg' as string]: fontColor }}>
         {statusTop && <StatusBar />}
         <div className={s.host} ref={hostRef}>
           {/* 正文挂载点：color-scheme 固定 light。界面切到深色时（color-scheme: dark），浏览器会给与父级配色不同的
